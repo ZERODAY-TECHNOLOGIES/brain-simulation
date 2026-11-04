@@ -12,20 +12,22 @@
                     ZoomExtentsWhenLoaded="False"
                     EnableSwapChainRendering="False" />
 
-    <!-- Layers, top left. Wraps on narrow panels. -->
+    <!-- Layers, top left. Scrolls when the panel is too short to show it all. -->
     <Border VerticalAlignment="Top" HorizontalAlignment="Left" Margin="10" Padding="10,6" CornerRadius="6"
             Background="#CC121821" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" MaxWidth="230">
-      <StackPanel>
-        <TextBlock Text="Layers" Style="{StaticResource SectionTitle}" Margin="0,0,0,4" />
-        <CheckBox x:Name="ShowCortex" Content="Cortex" IsChecked="True" Click="OnLayersChanged" />
-        <CheckBox x:Name="ShowSubcortical" Content="Subcortical" IsChecked="True" Click="OnLayersChanged" />
-        <CheckBox x:Name="ShowNuclei" Content="Nuclei" IsChecked="True" Click="OnLayersChanged" />
-        <CheckBox x:Name="ShowPaths" Content="Pathways" IsChecked="True" Click="OnLayersChanged" />
-        <CheckBox x:Name="ShowHpa" Content="HPA axis" IsChecked="False" Click="OnLayersChanged" />
-        <CheckBox x:Name="ShowLabels" Content="Labels" IsChecked="False" Click="OnLayersChanged" />
-        <TextBlock Text="Cortex opacity" Style="{StaticResource Muted}" Margin="0,6,0,0" />
-        <Slider x:Name="CortexOpacity" Minimum="0.02" Maximum="0.6" Value="0.12" />
-      </StackPanel>
+      <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel>
+          <TextBlock Text="Layers" Style="{StaticResource SectionTitle}" Margin="0,0,0,4" />
+          <CheckBox x:Name="ShowCortex" Content="Cortex" IsChecked="True" Click="OnLayersChanged" />
+          <CheckBox x:Name="ShowSubcortical" Content="Subcortical" IsChecked="True" Click="OnLayersChanged" />
+          <CheckBox x:Name="ShowNuclei" Content="Nuclei" IsChecked="True" Click="OnLayersChanged" />
+          <CheckBox x:Name="ShowPaths" Content="Pathways" IsChecked="True" Click="OnLayersChanged" />
+          <CheckBox x:Name="ShowHpa" Content="HPA axis" IsChecked="False" Click="OnLayersChanged" />
+          <CheckBox x:Name="ShowLabels" Content="Labels" IsChecked="False" Click="OnLayersChanged" />
+          <TextBlock Text="Cortex opacity" Style="{StaticResource Muted}" Margin="0,6,0,0" />
+          <Slider x:Name="CortexOpacity" Minimum="0.02" Maximum="0.6" Value="0.12" />
+        </StackPanel>
+      </ScrollViewer>
     </Border>
 
     <!-- Camera presets, top right. -->
