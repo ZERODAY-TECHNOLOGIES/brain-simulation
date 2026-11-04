@@ -3,6 +3,7 @@ using BrainSim.Engine.Config;
 using BrainSim.Engine.Hosting;
 using BrainSim.Engine.Journal;
 using BrainSim.Engine.Llm;
+using BrainSim.Engine.Memory;
 
 namespace BrainSim.Engine.Tests;
 
@@ -78,6 +79,7 @@ public class HostingTests
                 var reply = await replied.Task.WaitAsync(TimeSpan.FromSeconds(10), ct);
                 Assert.Equal(20, reply.Tokens);
                 Assert.Equal(20, tokens);
+                await WaitUntilAsync(() => host.Events.Snapshot().Any(e => e.Kind == EventKinds.Memory), ct); // a fact learned
 
                 host.Inject(Substance.Dopamine, 2.0);
                 await WaitUntilAsync(() => host.Events.Snapshot().Any(e => e.Kind == EventKinds.Lab), ct);
@@ -85,10 +87,36 @@ public class HostingTests
             }
 
             Assert.True(File.Exists(Path.Combine(directory, "checkpoint.json")));
+            Assert.Contains(MemoryFile.Load(Path.Combine(directory, "memory.bin")), c => c.Kind == ChunkKind.Episode && c.Text.StartsWith("hello"));
             var replay = await ReplaySession.LoadAsync(journalPath);
             Assert.True(replay.History.Count > 20);
             Assert.Equal(20, replay.History.Window(0, long.MaxValue, int.MaxValue).Count(r => r.Token is not null));
-            Assert.Equal([EventKinds.User, EventKinds.Agent, EventKinds.Lab], replay.Events.Snapshot().Select(e => e.Kind));
+            Assert.Equal([EventKinds.User, EventKinds.Agent, EventKinds.Memory, EventKinds.Lab], replay.Events.Snapshot().Select(e => e.Kind));
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task A_phase_6_checkpoint_brings_its_dream_fragments_into_memory()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"brainsim-host-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+        var llm = new LmStudioClient(new HttpClient(new FakeLmStudio(20)) { BaseAddress = new Uri(Config.Llm.BaseUrl) }, Config.Llm);
+        try
+        {
+            var old = new Agent(Config, llm, new Dictionary<string, LinearProbe>(), () => DateTime.Now).Checkpoint() with
+            {
+                Dreams = new Dreams.DreamState([new(DateTime.Now.AddHours(-2), "a red kite", 0.4), new(DateTime.Now.AddHours(-1), "the lake", 0.1)], []),
+            };
+            await old.SaveAsync(Path.Combine(directory, "checkpoint.json"), TestContext.Current.CancellationToken);
+
+            await using var host = new EngineHost(Config, llm, new Dictionary<string, LinearProbe>(), directory);
+            await host.StartAsync();
+
+            Assert.Equal(["a red kite", "the lake"], host.Agent.Memory.Snapshot().Select(c => c.Text));
         }
         finally
         {
