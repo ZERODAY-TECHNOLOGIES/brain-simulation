@@ -172,8 +172,6 @@ public sealed record DreamConfig
     public double SecondsPerToken { get; init; } = 2;
     public double SettleSeconds { get; init; } = 30;
     public int MaxTokens { get; init; } = 1200;
-    public double TagFloor { get; init; } = 0.05;
-    public int FragmentsKept { get; init; } = 100;
     public int JournalKept { get; init; } = 50;
     public string Joiner { get; init; } = ", and then";
     public int SegmentTokens { get; init; } = 120;

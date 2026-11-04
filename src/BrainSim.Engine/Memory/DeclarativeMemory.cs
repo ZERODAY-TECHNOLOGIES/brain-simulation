@@ -1,4 +1,5 @@
 using BrainSim.Engine.Config;
+using BrainSim.Engine.Dreams;
 using BrainSim.Engine.Sleep;
 
 namespace BrainSim.Engine.Memory;
@@ -228,6 +229,60 @@ public sealed class DeclarativeMemory(MemoryConfig config, int seed = 11)
 
         _lastReplay = brain.Now;
         Replayed?.Invoke(episode);
+    }
+
+    /// <summary>
+    /// Turns the dream fragments of a checkpoint from before Phase 7 into episodes. They have no embedding,
+    /// so they can be dreamed but never recalled or found familiar.
+    /// </summary>
+    public void Import(IEnumerable<Fragment> fragments)
+    {
+        foreach (var f in fragments)
+        {
+            Add(new Chunk
+            {
+                Id = NextId(),
+                Kind = ChunkKind.Episode,
+                Text = f.Text,
+                Created = f.Time,
+                Presentations = [new Presentation(f.Time, 1)],
+                Tag = f.Tag,
+                Salience = 0.05,
+            }, f.Time);
+        }
+    }
+
+    /// <summary>
+    /// Dream seeds (spec: "Visele (REM)"): up to <paramref name="count"/> episodes drawn in proportion to their
+    /// emotional tag, without replacement. Each one drawn loses <paramref name="detension"/> of its tag.
+    /// </summary>
+    public IReadOnlyList<string> DrawByTag(int count, Random random, double detension)
+    {
+        lock (_gate)
+        {
+            var pool = _chunks.Where(c => c is { Kind: ChunkKind.Episode, Archived: false }).ToList();
+            var seeds = new List<string>();
+            while (seeds.Count < count && pool.Count > 0)
+            {
+                var roll = random.NextDouble() * pool.Sum(c => c.Tag);
+                var pick = pool[^1];
+                foreach (var c in pool)
+                {
+                    roll -= c.Tag;
+                    if (roll <= 0)
+                    {
+                        pick = c;
+                        break;
+                    }
+                }
+
+                pool.Remove(pick);
+                seeds.Add(pick.Text);
+                pick.Tag *= 1 - detension;
+            }
+
+            return seeds;
+        }
     }
 
     private void Add(Chunk chunk, DateTime now)

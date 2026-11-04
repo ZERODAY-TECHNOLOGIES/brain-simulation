@@ -54,7 +54,7 @@ public sealed class Agent
         Brain = new Brain(config, clock());
         Appraiser = new Appraiser(config.Appraisal, probes);
         Memory = new DeclarativeMemory(config.Memory);
-        Dreamer = new Dreamer(config, llm);
+        Dreamer = new Dreamer(config, llm, Memory);
         Brain.Ticked += (brain, _) =>
         {
             ApplyLearnedFacts();
@@ -172,10 +172,8 @@ public sealed class Agent
         Brain.OnResponseFinished(tokens);
         Appraiser.LearnExpectedReward();
 
-        // The turn becomes a fragment of recent memory, tagged with the stress and alertness it was lived in.
-        Dreamer.Remember(message + "\n" + text, Brain.Chemistry.C, Brain.Now);
-
-        // ... and an episode in long-term memory, whose facts are extracted in the background.
+        // The turn becomes an episode, tagged with the stress and alertness it was lived in (dreams draw on the tag),
+        // and its facts are extracted in the background.
         var encoding = MemoryModulation.From(Brain.Modulation);
         var episode = Memory.AddEpisode(message + "\n" + text, embedding, Brain.Chemistry.C, encoding, Brain.Now);
         Extraction = Task.Run(() => ExtractAsync(episode, encoding));
