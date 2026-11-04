@@ -1,0 +1,9 @@
+{
+  "stryker-config": {
+    "project": "BrainSim.Engine.csproj",
+    "test-runner": "mtp",
+    "concurrency": 3,
+    "additional-timeout": 60000,
+    "reporters": [ "json", "cleartext", "html" ]
+  }
+}

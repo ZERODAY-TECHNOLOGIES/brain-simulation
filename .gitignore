@@ -3,6 +3,7 @@ obj/
 .vs/
 *.user
 TestResults/
+StrykerOutput/
 # runtime output and download caches, at the root only: unanchored, "journal/" also matched src/BrainSim.Engine/Journal on Windows
 /journal/
 /checkpoints/
