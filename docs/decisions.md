@@ -127,6 +127,22 @@ See [conventions.md](conventions.md#git).
 - **Decision:** D-10 covers project text only. The agent's replies and dreams are not
   filtered.
 
+### D-20. Slow OXT, 5-HT, CORT interactions scaled by 0.4
+- **Date:** 2026-11-04
+- **Context:** With the spec's W, the linearized system -K + W has an eigenvalue of
+  +1.4e-4, so the spec fails its own stability criterion. The cause is two pairs of mutual
+  inhibition, CORT and 5-HT, and CORT and OXT. Each pair is a positive feedback loop whose
+  gain (5e-8 and 6e-8) matches or beats the product of the two decay rates (3e-8 and
+  6e-8). CORT decays too slowly to hold them back. Left alone, sustained stress locks the
+  system into high CORT and low 5-HT.
+- **Decision:** Multiply the five W entries among OXT, 5-HT and CORT by 0.4. Half-lives
+  and signs stay as in the spec. The largest eigenvalue becomes -3.1e-5, so the slowest
+  mode settles in about 6 hours of ticks.
+- **Rejected:** x0.5 (barely stable, -6.3e-6, and one Lab edit could tip it over); CORT
+  half-life 2000 (CORT would no longer be the slow stress signal); keeping the
+  instability as a feature (contradicts the spec's validation).
+- **Check:** `StabilityTests` runs on every build.
+
 ## Open
 
 ### O-03. Probe training data

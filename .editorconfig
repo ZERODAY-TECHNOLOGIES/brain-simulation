@@ -1,0 +1,28 @@
+root = true
+
+[*]
+charset = utf-8
+indent_style = space
+indent_size = 4
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.{csproj,props,yaml,yml,json}]
+indent_size = 2
+
+[*.cs]
+csharp_style_namespace_declarations = file_scoped:warning
+csharp_style_var_when_type_is_apparent = true:suggestion
+dotnet_naming_rule.private_fields_underscore.symbols = private_fields
+dotnet_naming_rule.private_fields_underscore.style = underscore_camel
+dotnet_naming_rule.private_fields_underscore.severity = warning
+dotnet_naming_symbols.private_fields.applicable_kinds = field
+dotnet_naming_symbols.private_fields.applicable_accessibilities = private
+dotnet_naming_style.underscore_camel.required_prefix = _
+dotnet_naming_style.underscore_camel.capitalization = camel_case
+dotnet_naming_rule.constants_pascal.symbols = constants
+dotnet_naming_rule.constants_pascal.style = pascal
+dotnet_naming_rule.constants_pascal.severity = warning
+dotnet_naming_symbols.constants.applicable_kinds = field
+dotnet_naming_symbols.constants.required_modifiers = const
+dotnet_naming_style.pascal.capitalization = pascal_case

@@ -1,0 +1,11 @@
+<Project>
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageVersion Include="YamlDotNet" Version="18.1.0" />
+    <PackageVersion Include="Parquet.Net" Version="6.1.0" />
+    <PackageVersion Include="MathNet.Numerics" Version="5.0.0" />
+    <PackageVersion Include="xunit.v3" Version="4.0.2" />
+  </ItemGroup>
+</Project>
