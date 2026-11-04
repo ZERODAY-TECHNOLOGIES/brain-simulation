@@ -105,14 +105,6 @@ public sealed class TickHistory(int capacity = 100_000)
         }
     }
 
-    public void Clear()
-    {
-        lock (_gate)
-        {
-            _records.Clear();
-        }
-    }
-
     private int IndexAtOrBefore(long tick)
     {
         int lo = 0, hi = _records.Count - 1, found = -1;
