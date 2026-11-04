@@ -145,7 +145,7 @@ public sealed record MemoryConfig
 {
     public double Decay { get; init; } = 0.5;
     public double Spreading { get; init; } = 2.0;
-    public double CosineFloor { get; init; } = 0.5;
+    public double CosineFloor { get; init; } = 0.7;
     public double Noise { get; init; } = 0.25;
     public double Threshold { get; init; } = -3.0;
     public double Gain { get; init; } = 4;
@@ -159,6 +159,7 @@ public sealed record MemoryConfig
     public int ArchiveLimit { get; init; } = 5000;
     public double ExtractionTemperature { get; init; } = 0.2;
     public int ExtractionTokens { get; init; } = 150;
+    public int ExtractionReplyChars { get; init; } = 200;
     public int FactsPerEpisode { get; init; } = 5;
     public int FactMinChars { get; init; } = 3;
     public int FactMaxChars { get; init; } = 200;

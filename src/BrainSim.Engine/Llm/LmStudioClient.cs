@@ -62,6 +62,7 @@ public sealed class LmStudioClient(HttpClient http, LlmConfig config)
                 yield break;
             }
 
+            ThrowIfError(data);
             var chunk = JsonSerializer.Deserialize<ChatChunk>(data, Json);
             var content = chunk?.Choices is [{ Delta.Content: { Length: > 0 } text }, ..] ? text : null;
             if (content is not null)
@@ -100,6 +101,7 @@ public sealed class LmStudioClient(HttpClient http, LlmConfig config)
                 yield break;
             }
 
+            ThrowIfError(data);
             var chunk = JsonSerializer.Deserialize<CompletionChunk>(data, Json);
             if (chunk?.Choices is [{ Text: { Length: > 0 } text }, ..])
             {
@@ -117,6 +119,25 @@ public sealed class LmStudioClient(HttpClient http, LlmConfig config)
         var result = await response.Content.ReadFromJsonAsync<EmbeddingResponse>(Json, cancellationToken)
             ?? throw new InvalidDataException("LM Studio returned an empty embedding response.");
         return [.. result.Data.OrderBy(d => d.Index).Select(d => d.Embedding)];
+    }
+
+    /// <summary>
+    /// LM Studio reports a generation that failed after the headers (a chat template error, a crashed model)
+    /// as an SSE error event with HTTP 200. Without this it reads as an empty reply.
+    /// </summary>
+    private static void ThrowIfError(string data)
+    {
+        if (!data.Contains("\"error\"", StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        using var document = JsonDocument.Parse(data);
+        if (document.RootElement.TryGetProperty("error", out var error))
+        {
+            var message = error.ValueKind == JsonValueKind.Object && error.TryGetProperty("message", out var m) ? m.GetString() : error.ToString();
+            throw new HttpRequestException($"LM Studio failed to generate: {message}");
+        }
     }
 
     private sealed record ChatRequest(

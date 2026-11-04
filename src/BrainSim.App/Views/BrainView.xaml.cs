@@ -217,11 +217,11 @@ public partial class BrainView : UserControl
             _regions[key].Material.EmissiveColor = Rgba(Palette.Hex(Substance.Cortisol), 0.08f + (float)threat * 0.9f);
         }
 
-        // The hippocampus, where dream seeds come from, stays active while a dream runs.
-        var dreaming = (float)_viewModel.DreamActivity();
+        // The hippocampus stays active while a dream runs, and pulses when a turn is encoded or a fact recalled.
+        var hippocampus = (float)Math.Min(1, _viewModel.DreamActivity() + _viewModel.MemoryPulse());
         foreach (var key in new[] { "hippocampus_l", "hippocampus_r" })
         {
-            _regions[key].Material.EmissiveColor = Rgba(Palette.Hex(Substance.Acetylcholine), 0.05f + dreaming * 0.6f);
+            _regions[key].Material.EmissiveColor = Rgba(Palette.Hex(Substance.Acetylcholine), 0.05f + hippocampus * 0.6f);
         }
 
         UpdateCortex(frame, dt);

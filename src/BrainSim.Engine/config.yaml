@@ -195,7 +195,7 @@ dreams:
 memory:
   decay: 0.5                  # ACT-R d
   spreading: 2.0              # ours: W, the most a perfectly matching cue adds
-  cosine_floor: 0.5           # ours: cosine at or below which a cue adds nothing (unrelated nomic texts sit near 0.4 to 0.5)
+  cosine_floor: 0.7           # ours: a cue below this adds nothing. Measured with the classification prefix: unrelated 0.54 to 0.68, related 0.77 to 0.87
   noise: 0.25                 # ACT-R s at baseline
   threshold: -3.0             # ours: tau at baseline
   gain: 4                     # ours: m_k is small, about +-0.12 at twice baseline
@@ -209,6 +209,7 @@ memory:
   archive_limit: 5000         # ours: above this, the weakest chunks are archived
   extraction_temperature: 0.2 # ours
   extraction_tokens: 150      # ours
+  extraction_reply_chars: 200 # ours: the 0.8B model loses the user's facts in a long reply, so it sees only the start
   facts_per_episode: 5        # ours
   fact_min_chars: 3           # ours
   fact_max_chars: 200         # ours

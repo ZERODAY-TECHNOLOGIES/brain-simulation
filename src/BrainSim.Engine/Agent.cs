@@ -132,14 +132,22 @@ public sealed class Agent
         onAppraised?.Invoke(signals, sampling, remembered);
         _history.Add(ChatMessage.User(message));
 
+        // One system message, first: chat templates like Qwen's reject a system message anywhere else (D-34).
         // Recalled facts ride along with this request only; they never enter the history, so they do not pile up.
-        List<ChatMessage> request = [ChatMessage.System(_config.Llm.SystemPrompt)];
+        // System notes in the history (a dream broken off by this message) are folded in after them.
+        var window = _history.TakeLast(_config.Llm.HistoryMessages).ToList();
+        var system = new StringBuilder(_config.Llm.SystemPrompt);
         if (remembered.Count > 0)
         {
-            request.Add(ChatMessage.System("Things you remember:\n" + string.Join("\n", remembered.Select(f => "- " + f))));
+            system.Append("\n\nThings you remember:\n").AppendJoin("\n", remembered.Select(f => "- " + f));
         }
 
-        request.AddRange(_history.TakeLast(_config.Llm.HistoryMessages));
+        foreach (var note in window.Where(m => m.Role == "system"))
+        {
+            system.Append("\n\n").Append(note.Content);
+        }
+
+        List<ChatMessage> request = [ChatMessage.System(system.ToString()), .. window.Where(m => m.Role != "system")];
 
         // 6 to 8. One tick per streamed token.
         var text = new StringBuilder();
@@ -175,16 +183,21 @@ public sealed class Agent
         // The turn becomes an episode, tagged with the stress and alertness it was lived in (dreams draw on the tag),
         // and its facts are extracted in the background.
         var encoding = MemoryModulation.From(Brain.Modulation);
-        var episode = Memory.AddEpisode(message + "\n" + text, embedding, Brain.Chemistry.C, encoding, Brain.Now);
-        Extraction = Task.Run(() => ExtractAsync(episode, encoding));
-        return new AgentReply(text.ToString(), signals, sampling, tokens, remembered, familiarity);
+        var reply = text.ToString();
+        var episode = Memory.AddEpisode(message + "\n" + reply, embedding, Brain.Chemistry.C, encoding, Brain.Now);
+
+        // The extractor sees who said what, and only the start of the reply: qwen3.5-0.8b otherwise lists facts from a
+        // long reply and drops the user's own (extraction_reply_chars).
+        var exchange = $"User: {message}\nAssistant: {reply[..Math.Min(reply.Length, _config.Memory.ExtractionReplyChars)]}";
+        Extraction = Task.Run(() => ExtractAsync(episode, exchange, encoding));
+        return new AgentReply(reply, signals, sampling, tokens, remembered, familiarity);
     }
 
-    private async Task ExtractAsync(Chunk episode, MemoryModulation encoding)
+    private async Task ExtractAsync(Chunk episode, string exchange, MemoryModulation encoding)
     {
         try
         {
-            var facts = await FactExtractor.ExtractAsync(_llm, episode.Text, _config.Memory, CancellationToken.None);
+            var facts = await FactExtractor.ExtractAsync(_llm, exchange, _config.Memory, CancellationToken.None);
             if (facts.Count > 0)
             {
                 var embeddings = await _llm.EmbedAsync(facts);

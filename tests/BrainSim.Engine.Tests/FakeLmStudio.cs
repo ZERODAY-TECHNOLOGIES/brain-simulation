@@ -33,7 +33,13 @@ internal sealed class FakeLmStudio(int replyTokens) : HttpMessageHandler
         }
 
         string response;
-        if (request.RequestUri!.AbsolutePath.EndsWith("embeddings") && Embed is { } embed)
+        if (request.RequestUri!.AbsolutePath.EndsWith("chat/completions") && LateSystemMessage(body))
+        {
+            // What LM Studio does with Qwen's template: HTTP 200 and an error event instead of tokens.
+            Record(JsonDocument.Parse(body));
+            response = "event: error\ndata: {\"error\":{\"message\":\"Jinja Exception: System message must be at the beginning.\"}}\n\n";
+        }
+        else if (request.RequestUri!.AbsolutePath.EndsWith("embeddings") && Embed is { } embed)
         {
             var inputs = JsonDocument.Parse(body).RootElement.GetProperty("input").EnumerateArray().Select(e => e.GetString()!).ToList();
             var data = inputs.Select((text, i) => new { index = i, embedding = embed(text) });
@@ -77,6 +83,9 @@ internal sealed class FakeLmStudio(int replyTokens) : HttpMessageHandler
 
         return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(response) };
     }
+
+    private static bool LateSystemMessage(string body) =>
+        JsonDocument.Parse(body).RootElement.GetProperty("messages").EnumerateArray().Skip(1).Any(m => m.GetProperty("role").GetString() == "system");
 
     private void Record(JsonDocument request)
     {

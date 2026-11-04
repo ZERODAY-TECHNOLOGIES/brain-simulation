@@ -54,7 +54,7 @@ public class T7MemoryTests
 
     private static bool Remembers(FakeLmStudio llm) =>
         LastReplyRequest(llm).GetProperty("messages").EnumerateArray()
-            .Any(m => m.GetProperty("content").GetString()!.StartsWith("Things you remember:") && m.GetProperty("content").GetString()!.Contains("Ilinca"));
+            .Any(m => m.GetProperty("content").GetString()!.Contains("Things you remember:") && m.GetProperty("content").GetString()!.Contains("Ilinca"));
 
     private static async Task<bool> TellThenAsk(Substance held, double level)
     {
@@ -97,7 +97,7 @@ public class T7MemoryTests
         Assert.Empty(reply.Recalled);
         Assert.Equal(0, reply.Familiarity);
         Assert.DoesNotContain(LastReplyRequest(llm).GetProperty("messages").EnumerateArray(),
-            m => m.GetProperty("content").GetString()!.StartsWith("Things you remember:"));
+            m => m.GetProperty("content").GetString()!.Contains("Things you remember:"));
     }
 
     [Fact]
@@ -126,6 +126,25 @@ public class T7MemoryTests
         Assert.True(b.Signals.Surprise > 0, "the lighthouse is new to the appraisal");
         Assert.True(a.Familiarity > 0);
         Assert.Equal(b.Signals.Surprise * (1 - Config.Memory.FamiliarityDamping * a.Familiarity), a.Signals.Surprise, 9);
+    }
+
+    /// <summary>
+    /// qwen3.5-0.8b given the bare exchange extracts facts from the long reply and drops the user's (0 of 5 tries);
+    /// labeled, with the reply cut to its start, it keeps them (5 of 5).
+    /// </summary>
+    [Fact]
+    public async Task Extraction_sees_who_said_what_and_only_the_start_of_the_reply()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var longReply = new string('x', 1000);
+        var (agent, llm, _, _) = Create(r => r.RootElement.GetProperty("messages")[0].GetProperty("content").GetString() == FactExtractor.Instruction ? "" : longReply);
+
+        await agent.SendAsync(Fact, cancellationToken: ct);
+        await agent.Extraction!.WaitAsync(TimeSpan.FromSeconds(10), ct);
+
+        var input = llm.ExtractionRequests.Single().RootElement.GetProperty("messages")[1].GetProperty("content").GetString()!;
+        Assert.Equal($"User: {Fact}\nAssistant: {longReply[..Config.Memory.ExtractionReplyChars]}", input);
+        Assert.Equal(Fact + "\n" + longReply, agent.Memory.Snapshot().Single().Text); // the episode keeps the whole turn
     }
 
     [Fact]

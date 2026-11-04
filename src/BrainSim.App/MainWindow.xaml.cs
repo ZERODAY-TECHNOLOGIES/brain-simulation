@@ -7,7 +7,7 @@ namespace BrainSim.App;
 
 public partial class MainWindow : Window
 {
-    private static readonly string LayoutPath = Path.Combine(App.DataDirectory, "layout-v3.xml"); // v3 added the dreams panel
+    private static readonly string LayoutPath = Path.Combine(App.DataDirectory, "layout-v4.xml"); // v4 added the memory panel
 
     public MainWindow(MainViewModel viewModel)
     {
@@ -15,7 +15,7 @@ public partial class MainWindow : Window
         DataContext = viewModel;
 
         // Content inside AvalonDock does not reliably inherit the window's DataContext, so set it on each panel.
-        foreach (var panel in new FrameworkElement[] { BrainPanel, ChemistryPanel, ChatPanel, ReceptorsPanel, EffectorsPanel, ClockPanel, SleepPanel, DreamsPanel, LabPanel })
+        foreach (var panel in new FrameworkElement[] { BrainPanel, ChemistryPanel, ChatPanel, ReceptorsPanel, EffectorsPanel, ClockPanel, SleepPanel, DreamsPanel, MemoryPanel, LabPanel })
         {
             panel.DataContext = viewModel;
         }
