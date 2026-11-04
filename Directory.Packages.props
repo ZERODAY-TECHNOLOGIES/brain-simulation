@@ -14,5 +14,6 @@
     <PackageVersion Include="Dirkster.AvalonDock.Serializer.Xml" Version="5.0.1" />
     <PackageVersion Include="ScottPlot.WPF" Version="5.1.59" />
     <PackageVersion Include="xunit.v3" Version="4.0.2" />
+    <PackageVersion Include="Microsoft.Testing.Extensions.CodeCoverage" Version="18.11.2" />
   </ItemGroup>
 </Project>
