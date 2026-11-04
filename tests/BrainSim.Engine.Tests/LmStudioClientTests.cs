@@ -95,4 +95,22 @@ public class LmStudioClientTests
         using var body = JsonDocument.Parse(handler.RequestBody!);
         Assert.Equal(Config.EmbeddingPrefix + "first", body.RootElement.GetProperty("input")[0].GetString());
     }
+
+    [Fact]
+    public async Task An_empty_embedding_response_is_an_error_that_says_so()
+    {
+        var e = await Assert.ThrowsAsync<InvalidDataException>(() =>
+            Client(new FakeHandler("null")).EmbedAsync(["first"], TestContext.Current.CancellationToken));
+
+        Assert.Equal("LM Studio returned an empty embedding response.", e.Message);
+    }
+
+    /// <summary>The agent treats a connection error as LM Studio being away and carries on; a client without the URL would crash it.</summary>
+    [Fact]
+    public async Task A_created_client_calls_the_configured_url()
+    {
+        var client = LmStudioClient.Create(Config with { BaseUrl = "http://127.0.0.1:9/v1/" }); // nothing listens on the discard port
+
+        await Assert.ThrowsAsync<HttpRequestException>(() => client.EmbedAsync(["first"], TestContext.Current.CancellationToken));
+    }
 }

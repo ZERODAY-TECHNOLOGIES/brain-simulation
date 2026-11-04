@@ -11,7 +11,7 @@ public sealed class ConfigTests : IDisposable
 
     [Theory]
     [InlineData("  NE: 40", "  NE: -40", "half_life for NE")]
-    [InlineData("  - { from: GABA, to: NE,   w: -0.01 }", "  - { from: GABBA, to: NE,   w: -0.01 }", "GABBA")]
+    [InlineData("  - { from: GABA, to: NE,   w: -0.01 }", "  - { from: GABBA, to: NE,   w: -0.01 }", "GABBA'. Expected one of: NE, ACh, DA, GABA")]
     [InlineData("{ substance: CORT, emax: -0.5 }", "{ substance: CORTT, emax: -0.5 }", "CORTT")]
     [InlineData("    surprise:        { NE: 0.8, ACh: 0.6 }", "    suprise:        { NE: 0.8, ACh: 0.6 }", "suprise")]
     [InlineData("    reward_error:    { DA: 1.5 }", "    reward_error:    { DOPA: 1.5 }", "DOPA")]
