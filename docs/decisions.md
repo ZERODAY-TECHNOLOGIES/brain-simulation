@@ -281,6 +281,21 @@ See [conventions.md](conventions.md#git).
 - **Fast time:** at x600 a 9 minute REM lasts under a second, so a dream only gets the
   tokens the model produced in that second. Dreams read best at x1 to x60.
 
+### D-31. Dreams are recombined by structure, not by word lists
+- **Date:** 2026-11-04
+- **Context:** Fed whole conversation turns, the instruction-tuned model continued them as
+  an assistant: it answered, asked questions, offered help, or opened a thinking block.
+- **Decision:** a general fix that does not depend on the language or on any phrase list.
+  The seed fragments are split into clauses on punctuation and line breaks, markdown marks
+  and questions are dropped, and all clauses are shuffled together and joined by commas,
+  ending in an open ", and then". The dream is generated in segments that stop at the first
+  new line, question mark or thinking tag (where the model would start talking to someone)
+  and continues from its own tail with the clauses reshuffled each time, until the REM
+  period is filled. Three empty segments in a row end the dream early.
+- **Result** on the real model: first-person, dream-like streams that mix the seeds ("I
+  walked by the water, I felt calm, now I want to see if there was a reason why the ducks
+  were watching me").
+
 ## Open
 
 No open questions right now.

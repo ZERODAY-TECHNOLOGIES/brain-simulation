@@ -189,3 +189,5 @@ dreams:
   tag_floor: 0.05             # ours, not in spec: calm memories can still be dreamed, just rarely
   fragments_kept: 100         # ours, not in spec: recent memory until ACT-R exists
   journal_kept: 50            # ours, not in spec
+  joiner: ", and then"        # ours, not in spec: links dream segments and invites the next one (D-31)
+  segment_tokens: 120         # ours, not in spec: longest single segment before the dream re-seeds itself

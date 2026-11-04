@@ -149,10 +149,11 @@ public sealed class Dreamer
         var budget = (int)Math.Clamp((remEnd - brain.Now).TotalSeconds / _config.SecondsPerToken, 1, _config.MaxTokens);
         var sampling = Sampling.Compute(brain.Chemistry.C, _sampling) with { MaxTokens = budget };
 
-        // Recombination: the seeds go in shuffled, without order or instructions.
+        // Recombination, as structure rather than word lists, so it holds in any language (D-31):
+        // the seeds lose their dialogue shape (clauses only, questions dropped) and are shuffled together.
+        var pool = seeds.SelectMany(Clauses).ToList();
         var shuffled = seeds.ToArray();
         _random.Shuffle(shuffled);
-        var prompt = string.Join("\n\n", shuffled) + "\n\n";
 
         lock (_gate)
         {
@@ -163,17 +164,12 @@ public sealed class Dreamer
         _current = new Draft(brain.Now, shuffled, [.. brain.Chemistry.C]);
         _cancel = new CancellationTokenSource();
         var token = _cancel.Token;
+        var random = new Random(_random.Next());
         Generation = Task.Run(async () =>
         {
             try
             {
-                await foreach (var piece in _llm.StreamCompletionAsync(prompt, sampling, token))
-                {
-                    lock (_gate)
-                    {
-                        _generated.Add(piece);
-                    }
-                }
+                await DreamAsync(pool, sampling, budget, random, token);
             }
             catch (OperationCanceledException) when (token.IsCancellationRequested)
             {
@@ -186,6 +182,69 @@ public sealed class Dreamer
         });
 
         Started?.Invoke(Current!);
+    }
+
+    /// <summary>
+    /// The dream runs in segments. Each one continues a freshly shuffled pool of clauses plus the tail of the dream
+    /// so far, and stops at the first new line, question or thinking tag: the places where an instruction-tuned
+    /// model leaves the stream of images and starts answering someone.
+    /// </summary>
+    private async Task DreamAsync(List<string> pool, SamplingParameters sampling, int budget, Random random, CancellationToken token)
+    {
+        var dream = new StringBuilder();
+        var produced = 0;
+        var empty = 0;
+        while (produced < budget && empty < 3 && !token.IsCancellationRequested)
+        {
+            random.Shuffle(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(pool));
+            var tail = dream.Length > 200 ? dream.ToString(dream.Length - 200, 200) : dream.ToString();
+            var prompt = string.Join(", ", pool) + ", " + tail + _config.Joiner;
+            var segment = new List<string>();
+            var limit = sampling with { MaxTokens = Math.Min(_config.SegmentTokens, budget - produced) };
+            await foreach (var piece in _llm.StreamCompletionAsync(prompt, limit, Stops, token))
+            {
+                segment.Add(piece);
+            }
+
+            var text = string.Concat(segment).Trim();
+            if (text.Trim('.', ',', ' ').Length == 0)
+            {
+                empty++;
+                continue;
+            }
+
+            empty = 0;
+            segment.Add(_config.Joiner + " ");
+            dream.Append(text).Append(_config.Joiner).Append(' ');
+            lock (_gate)
+            {
+                _generated.AddRange(segment);
+            }
+
+            produced += segment.Count;
+        }
+    }
+
+    private static readonly string[] Stops = ["\n", "?", "<think>", "</think>"];
+
+    /// <summary>
+    /// Splits a fragment into clauses on punctuation and line breaks, drops markdown marks and questions.
+    /// No word lists, so it works the same for any language the conversation is in.
+    /// </summary>
+    public static IEnumerable<string> Clauses(string text)
+    {
+        var plain = new string([.. text.Select(c => c is '*' or '_' or '`' or '#' or '>' or '|' ? ' ' : c)]);
+        foreach (var line in plain.Split('\n'))
+        {
+            foreach (var part in System.Text.RegularExpressions.Regex.Split(line.Trim(), @"(?<=[.!?;:])\s+|,\s+|^\s*-\s+|\s+-\s+"))
+            {
+                var clause = part.Trim(' ', '-', '.', '!', ';', ':');
+                if (clause.Length > 0 && !clause.EndsWith('?'))
+                {
+                    yield return char.ToLowerInvariant(clause[0]) + clause[1..];
+                }
+            }
+        }
     }
 
     private Dream? End(DateTime now, bool interrupted)

@@ -78,11 +78,16 @@ public class T9DreamTests
         await agent.Dreamer.Generation!.WaitAsync(TimeSpan.FromSeconds(10), ct);
 
         // REM chemistry sets the dream's character: NE near 0 gives a temperature close to 1.0.
-        var request = llm.CompletionRequests.Single().RootElement;
+        var request = llm.CompletionRequests.First().RootElement;
         Assert.InRange(request.GetProperty("temperature").GetDouble(), 0.95, 1.1);
-        // The rest of this REM at 1 token per 2 s: it started at minute 81, settled for 30 s, and ends at minute 90.
-        Assert.InRange(request.GetProperty("max_tokens").GetInt32(), 250, 256);
-        Assert.Contains("\n\n", request.GetProperty("prompt").GetString());
+        // Segments of at most segment_tokens; the dream as a whole is sized to the rest of this REM.
+        Assert.Equal(Config.Dreams.SegmentTokens, request.GetProperty("max_tokens").GetInt32());
+
+        // No dialogue shape and no instructions: clauses joined by commas, ending in the open joiner.
+        var prompt = request.GetProperty("prompt").GetString()!;
+        Assert.DoesNotContain("\n", prompt);
+        Assert.EndsWith(Config.Dreams.Joiner, prompt);
+        Assert.Contains(request.GetProperty("stop").EnumerateArray(), s => s.GetString() == "\n");
 
         // A minute later, tokens have been revealed at one per 2 seconds of REM.
         agent.Brain.AdvanceTo(agent.Brain.Now.AddMinutes(1));

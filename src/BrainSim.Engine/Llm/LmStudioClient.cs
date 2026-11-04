@@ -78,9 +78,10 @@ public sealed class LmStudioClient(HttpClient http, LlmConfig config)
     public async IAsyncEnumerable<string> StreamCompletionAsync(
         string prompt,
         SamplingParameters sampling,
+        IReadOnlyList<string>? stop = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        var body = new CompletionRequest(config.ChatModel, prompt, sampling.Temperature, sampling.TopP, sampling.MaxTokens, Stream: true);
+        var body = new CompletionRequest(config.ChatModel, prompt, sampling.Temperature, sampling.TopP, sampling.MaxTokens, Stream: true, stop?.ToArray());
         using var request = new HttpRequestMessage(HttpMethod.Post, "completions") { Content = JsonContent.Create(body, options: Json) };
         using var response = await http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
         response.EnsureSuccessStatusCode();
@@ -129,7 +130,7 @@ public sealed class LmStudioClient(HttpClient http, LlmConfig config)
 
     private sealed record ChatDelta(string? Content);
 
-    private sealed record CompletionRequest(string Model, string Prompt, double Temperature, double TopP, int MaxTokens, bool Stream);
+    private sealed record CompletionRequest(string Model, string Prompt, double Temperature, double TopP, int MaxTokens, bool Stream, string[]? Stop);
 
     private sealed record CompletionChunk(CompletionChoice[]? Choices);
 
