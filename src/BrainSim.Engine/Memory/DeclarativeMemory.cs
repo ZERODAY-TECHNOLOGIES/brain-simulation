@@ -206,29 +206,36 @@ public sealed class DeclarativeMemory(MemoryConfig config, int seed = 11)
             return;
         }
 
-        Chunk? episode;
+        if (ReplayMostSalient(brain.Now, weight) is { } episode)
+        {
+            _lastReplay = brain.Now;
+            Replayed?.Invoke(episode);
+        }
+    }
+
+    /// <summary>The most salient episode (newest on a tie) and its facts get a presentation; its salience decays.</summary>
+    private Chunk? ReplayMostSalient(DateTime now, double weight)
+    {
         lock (_gate)
         {
-            episode = _chunks
+            var episode = _chunks
                 .Where(c => c is { Kind: ChunkKind.Episode, Archived: false })
                 .OrderByDescending(c => c.Salience)
                 .ThenByDescending(c => c.Created)
                 .FirstOrDefault();
             if (episode is null)
             {
-                return;
+                return null;
             }
 
             foreach (var chunk in _chunks.Where(c => c == episode || c.EpisodeId == episode.Id))
             {
-                chunk.Presentations.Add(new Presentation(brain.Now, weight));
+                chunk.Presentations.Add(new Presentation(now, weight));
             }
 
             episode.Salience *= config.SalienceDecay;
+            return episode;
         }
-
-        _lastReplay = brain.Now;
-        Replayed?.Invoke(episode);
     }
 
     /// <summary>

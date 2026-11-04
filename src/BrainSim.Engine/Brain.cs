@@ -187,25 +187,30 @@ public sealed class Brain
             return;
         }
 
-        var sleep = _config.Sleep;
-        var pressure = SleepPressure;
-        if (!Asleep)
+        if (!Asleep && SleepDue() is { } kind)
         {
-            if (Chemistry.C[Ado] >= sleep.ForcedAdenosine)
-            {
-                FallAsleep(TransitionKind.ForcedSleep);
-            }
-            else if (pressure > sleep.OnsetPressure
-                && Chemistry.C[Mel] > sleep.OnsetMelatonin
-                && (Now - _lastUserMessage).TotalMinutes > sleep.OnsetIdleMinutes)
-            {
-                FallAsleep(TransitionKind.FellAsleep);
-            }
+            FallAsleep(kind);
         }
-        else if (pressure < sleep.WakePressure && !Clock.InDarkWindow(Clock.Phase(Now)))
+        else if (Asleep && SleepPressure < _config.Sleep.WakePressure && !Clock.InDarkWindow(Clock.Phase(Now)))
         {
             Wake(TransitionKind.WokeNaturally);
         }
+    }
+
+    /// <summary>Forced at the adenosine limit; otherwise when pressure and melatonin are high and the user is quiet.</summary>
+    private TransitionKind? SleepDue()
+    {
+        var sleep = _config.Sleep;
+        if (Chemistry.C[Ado] >= sleep.ForcedAdenosine)
+        {
+            return TransitionKind.ForcedSleep;
+        }
+
+        return SleepPressure > sleep.OnsetPressure
+            && Chemistry.C[Mel] > sleep.OnsetMelatonin
+            && (Now - _lastUserMessage).TotalMinutes > sleep.OnsetIdleMinutes
+            ? TransitionKind.FellAsleep
+            : null;
     }
 
     private void FallAsleep(TransitionKind kind)

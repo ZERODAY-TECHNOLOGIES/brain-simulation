@@ -34,41 +34,54 @@ public sealed record LinearProbe(float[] Weights, float Bias, double Auc, string
         var m = new double[d + 1];
         var v = new double[d + 1];
         var grad = new double[d + 1];
-        const double beta1 = 0.9, beta2 = 0.999, eps = 1e-8;
 
         for (var epoch = 1; epoch <= epochs; epoch++)
         {
-            Array.Clear(grad);
-            for (var i = 0; i < n; i++)
-            {
-                var xi = x[i];
-                var z = w[d];
-                for (var j = 0; j < d; j++)
-                {
-                    z += w[j] * xi[j];
-                }
-
-                var error = (1 / (1 + Math.Exp(-z)) - (y[i] ? 1 : 0)) * (y[i] ? weightPos : weightNeg);
-                for (var j = 0; j < d; j++)
-                {
-                    grad[j] += error * xi[j];
-                }
-
-                grad[d] += error;
-            }
-
-            for (var j = 0; j <= d; j++)
-            {
-                var g = grad[j] / n + (j < d ? l2 * w[j] : 0);
-                m[j] = beta1 * m[j] + (1 - beta1) * g;
-                v[j] = beta2 * v[j] + (1 - beta2) * g * g;
-                var mHat = m[j] / (1 - Math.Pow(beta1, epoch));
-                var vHat = v[j] / (1 - Math.Pow(beta2, epoch));
-                w[j] -= learningRate * mHat / (Math.Sqrt(vHat) + eps);
-            }
+            Gradient(x, y, w, weightPos, weightNeg, grad);
+            AdamStep(w, m, v, grad, n, epoch, learningRate, l2);
         }
 
         return ([.. w.Take(d).Select(x => (float)x)], (float)w[d]);
+    }
+
+    /// <summary>Summed, class-weighted gradient of the logistic loss over the whole batch, into <paramref name="grad"/>.</summary>
+    private static void Gradient(IReadOnlyList<float[]> x, IReadOnlyList<bool> y, double[] w, double weightPos, double weightNeg, double[] grad)
+    {
+        var d = w.Length - 1;
+        Array.Clear(grad);
+        for (var i = 0; i < x.Count; i++)
+        {
+            var xi = x[i];
+            var z = w[d];
+            for (var j = 0; j < d; j++)
+            {
+                z += w[j] * xi[j];
+            }
+
+            var error = (1 / (1 + Math.Exp(-z)) - (y[i] ? 1 : 0)) * (y[i] ? weightPos : weightNeg);
+            for (var j = 0; j < d; j++)
+            {
+                grad[j] += error * xi[j];
+            }
+
+            grad[d] += error;
+        }
+    }
+
+    /// <summary>One Adam update of <paramref name="w"/>, with L2 on the weights but not the bias.</summary>
+    private static void AdamStep(double[] w, double[] m, double[] v, double[] grad, int n, int epoch, double learningRate, double l2)
+    {
+        const double beta1 = 0.9, beta2 = 0.999, eps = 1e-8;
+        var d = w.Length - 1;
+        for (var j = 0; j <= d; j++)
+        {
+            var g = grad[j] / n + (j < d ? l2 * w[j] : 0);
+            m[j] = beta1 * m[j] + (1 - beta1) * g;
+            v[j] = beta2 * v[j] + (1 - beta2) * g * g;
+            var mHat = m[j] / (1 - Math.Pow(beta1, epoch));
+            var vHat = v[j] / (1 - Math.Pow(beta2, epoch));
+            w[j] -= learningRate * mHat / (Math.Sqrt(vHat) + eps);
+        }
     }
 
     /// <summary>ROC AUC as the Mann-Whitney statistic, with ties counted as half.</summary>
