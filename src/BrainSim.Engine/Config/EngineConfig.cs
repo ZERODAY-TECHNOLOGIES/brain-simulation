@@ -35,6 +35,10 @@ public sealed record EngineConfig
     /// <summary>Half-life per substance, in enum order.</summary>
     public double[] HalfLives() => Substances.All.Select(s => HalfLife[s.Abbreviation()]).ToArray();
 
+    private static readonly string[] Signals = ["surprise", "reward_error", "threat", "warmth", "expected_reward"];
+    private static readonly string[] SleepPhases = ["N1", "N2", "N3", "REM"];
+
+    /// <summary>Every name in the file is parsed once, here, so a typo fails at load and not mid-run.</summary>
     private void Validate()
     {
         foreach (var s in Substances.All)
@@ -45,42 +49,31 @@ public sealed record EngineConfig
             }
         }
 
-        // Parse every substance name once so a typo fails at load, not mid-run.
-        foreach (var i in Interactions)
+        ParseSubstances(Interactions.SelectMany(i => new[] { i.From, i.To }));
+        ParseSubstances(Modulation.Channels.Values.SelectMany(t => t).Select(t => t.Substance));
+        ValidateTable("appraisal signal", "gains", Appraisal.Gains, Signals);
+        ValidateTable("sleep phase", "phase_targets", Sleep.PhaseTargets, SleepPhases);
+    }
+
+    /// <summary>A table keyed by one of <paramref name="allowed"/>, whose rows map substances to values.</summary>
+    private static void ValidateTable(string what, string key, Dictionary<string, Dictionary<string, double>> table, string[] allowed)
+    {
+        foreach (var (name, row) in table)
         {
-            Substances.Parse(i.From);
-            Substances.Parse(i.To);
+            if (!allowed.Contains(name))
+            {
+                throw new InvalidDataException($"config.yaml: unknown {what} '{name}' in {key}.");
+            }
+
+            ParseSubstances(row.Keys);
         }
+    }
 
-        foreach (var term in Modulation.Channels.Values.SelectMany(t => t))
+    private static void ParseSubstances(IEnumerable<string> names)
+    {
+        foreach (var name in names)
         {
-            Substances.Parse(term.Substance);
-        }
-
-        foreach (var (signal, gains) in Appraisal.Gains)
-        {
-            if (signal is not ("surprise" or "reward_error" or "threat" or "warmth" or "expected_reward"))
-            {
-                throw new InvalidDataException($"config.yaml: unknown appraisal signal '{signal}' in gains.");
-            }
-
-            foreach (var substance in gains.Keys)
-            {
-                Substances.Parse(substance);
-            }
-        }
-
-        foreach (var (phase, targets) in Sleep.PhaseTargets)
-        {
-            if (phase is not ("N1" or "N2" or "N3" or "REM"))
-            {
-                throw new InvalidDataException($"config.yaml: unknown sleep phase '{phase}' in phase_targets.");
-            }
-
-            foreach (var substance in targets.Keys)
-            {
-                Substances.Parse(substance);
-            }
+            Substances.Parse(name);
         }
     }
 }
