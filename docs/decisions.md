@@ -50,8 +50,8 @@ Status values: **Decided**, **Open**, **Default** (we go with this unless someon
 - **Decision:** LM Studio serves an embedding model. We train small linear classifiers
   (logistic regression) on those embeddings for threat A, social warmth W and sentiment r.
   The spec's acceptance gate stays: a probe ships only with AUC > 0.85 on held-out data.
-- **Open parts:** which dataset for social warmth (O-03), how to get surprise S (O-04).
-  The embedding model is settled by D-17.
+- **Open parts:** which dataset for social warmth (O-03). The embedding model is settled
+  by D-17, surprise S by D-19.
 
 ### D-06. Reward is implicit only, plus a live chemistry Lab
 - **Date:** 2026-11-04
@@ -135,10 +135,26 @@ Sentiment (for r) and toxicity (for A) have well-known public English sets. Soci
 datasets (warmth-related labels against neutral and hostile), or a small hand-labeled set.
 Whatever we pick must clear AUC > 0.85.
 
-### O-04. Surprise S without access to the model internals
-The spec uses the mean per-token NLL of the user message. That needs prompt logprobs from
-LM Studio, which we must test in Phase 0. Fallback: novelty of the message embedding
-compared with the last ~50 messages (1 minus max cosine similarity, z-scored).
+## LM Studio spike results (2026-11-04)
+
+Measured on this laptop with LM Studio's local server:
+- The server runs on port **1235** here, not the usual 1234, so the base URL is a config value.
+- Qwen3.5-0.8B (GGUF, 1.02 GB) generates about **21 tokens per second**.
+- Streaming sends one SSE chunk per token, so 1 tick = 1 chunk works directly.
+- `/v1/chat/completions` returns logprobs for **generated** tokens only.
+  `/v1/completions` with `echo` returns no logprobs at all. There are **no prompt logprobs**.
+- `/v1/embeddings` with `nomic-embed-text-v1.5` returns 768-dimensional vectors.
+- The model reports `reasoning_tokens: 0` by default, so thinking mode is off.
+
+### D-19. Surprise S from embedding novelty
+- **Date:** 2026-11-04
+- **Context:** The spec uses the mean per-token NLL of the user message. LM Studio has no
+  prompt logprobs (see the spike results above).
+- **Decision:** S is the novelty of the message embedding: 1 minus the max cosine
+  similarity to the last ~50 messages, z-scored against the running stats of those same
+  novelty values, clipped to [0, 3].
+- **Consequence:** The perplexity part of T9 also stays out of reach. Generated-token
+  logprobs are still journaled, since they are free.
 
 ### Spec decisions that no longer apply
 From the spec's open list: the exact base model is now Qwen3.5-0.8B (D-03); probes versus

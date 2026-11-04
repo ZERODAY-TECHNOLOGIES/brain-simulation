@@ -10,7 +10,7 @@
 |                                                                    appraisal, clock, sleep,      |
 |                                                                    dreams, journal               |
 +-----------------------------------------------------------------------|--------------------------+
-                                                                        | HTTP (localhost:1234)
+                                                                        | HTTP (localhost:1235)
                                                               +---------v----------+
                                                               | LM Studio          |
                                                               | Qwen3.5-0.8B       |
@@ -80,7 +80,7 @@ Same order as the spec, with reduced-mode changes marked.
 **On user message**
 1. Flush pending clock ticks. If the app was closed, catch up (with sleep if due).
    A message during sleep triggers a forced wake first.
-2. Embed the message through LM Studio. Request prompt logprobs if available (O-04).
+2. Embed the message through LM Studio. (No prompt logprobs, see D-19.)
 3. Compute S, r, A, W. r is the sentiment of this message, applied to the previous
    response: delta = r - V.
 4. Schedule the impulses over the next 10 ticks.
@@ -110,7 +110,7 @@ What the spec asks for and what we can do with LM Studio.
 |---|---|---|
 | Chemistry, W, special dynamics | Full | |
 | Receptors, tolerance, withdrawal | Full | |
-| Appraisal S, r, A, W | Adapted | Probes on embeddings instead of residual stream (D-05). S from prompt logprobs or embedding novelty (O-04) |
+| Appraisal S, r, A, W | Adapted | Probes on embeddings instead of residual stream (D-05). S from embedding novelty (D-19) |
 | E1 steering | Display only | m_k computed and shown, never applied |
 | E2 sampling | Adapted | Once per response (D-04) |
 | E3 plasticity | Not available | No LoRA. eta is computed and shown |
@@ -122,7 +122,7 @@ What the spec asks for and what we can do with LM Studio.
 | T1, T4, T6, T8 | Apply | |
 | T2, T3, T7 | Do not apply | Need hooks or training |
 | T5 | Changes meaning | Only sampling differs between the chemistry and the prompt control |
-| T9 | Partial | Perplexity part needs logprobs |
+| T9 | Partial | Perplexity part needs prompt logprobs, which LM Studio does not give |
 
 Upgrade path: a second backend running transformers (Python or TorchSharp) behind the
 same `Llm/` boundary. Not built until needed.
