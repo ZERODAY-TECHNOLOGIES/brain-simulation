@@ -208,6 +208,26 @@ See [conventions.md](conventions.md#git).
   (`BRAINSIM_LMSTUDIO=1`): hostility raises CORT, which then recovers, and praise gives
   DA and OXT peaks.
 
+### D-25. The events journal is JSON lines, not Parquet
+- **Date:** 2026-11-04
+- **Context:** Events are few, irregular and have different fields per kind.
+- **Decision:** One JSON object per line, flushed as it is written. It survives a crash and
+  can be read while the session runs. The tick journal stays Parquet.
+
+### D-26. App data in %LOCALAPPDATA%\BrainSim
+- **Date:** 2026-11-04
+- **Decision:** Checkpoint and journals live in the user's local app data, not in the repo.
+  If a checkpoint is ahead of the wall clock (after a simulated run), the app keeps it on
+  simulated time at x1 instead of freezing it until real time catches up.
+
+### D-27. Viewer v1 scope
+- **Date:** 2026-11-04
+- **Decision:** The first viewer has the toolbar, chat, chemistry, receptors, effectors,
+  clock, sleep and Lab panels, and the timeline with live, scrub-back and replay of saved
+  sessions. Deferred until needed: saving the panel layout between runs (AvalonDock 5
+  moved it to a separate package), editing baselines and appraisal gains in the Lab, the W
+  heatmap (the Lab edits W as a list), and showing earlier sessions' messages in the chat.
+
 ## Open
 
 No open questions right now.

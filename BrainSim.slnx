@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/BrainSim.App/BrainSim.App.csproj" />
     <Project Path="src/BrainSim.Engine/BrainSim.Engine.csproj" />
   </Folder>
   <Folder Name="/tests/">

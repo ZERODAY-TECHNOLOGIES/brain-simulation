@@ -65,6 +65,11 @@ As of 2026-11-04:
   sampling effector and the full agent loop with exact checkpoints. All four probes clear
   AUC 0.85 (D-24). T4 passes in part against the real model.
 
+- **Phase 4:** done. The WPF viewer: chat with live token streaming, the chemistry,
+  receptors, effectors, clock, sleep and Lab panels, the timeline with scrub-back, and
+  replay of saved sessions. Responsive from 1024 x 640 up (D-27 lists what was left out).
+
+Run the app with `dotnet run --project src/BrainSim.App` (LM Studio on, both models loaded).
 Run the tests with `dotnet test --solution BrainSim.slnx`. To also run the scenario tests
 against LM Studio: `BRAINSIM_LMSTUDIO=1 dotnet test --solution BrainSim.slnx`.
 To retrain the probes: `dotnet run --project tools/ProbeTrainer` (about 10 minutes the

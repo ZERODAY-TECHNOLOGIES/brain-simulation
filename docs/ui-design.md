@@ -10,6 +10,11 @@
    Lab and the chat annotations.
 4. **Live and replay look the same.** Replay is the live view driven by the journal instead
    of the engine.
+5. **Responsive on every screen.** The app must work from a 1366 x 768 laptop at 125% scaling
+   up to large 4K monitors. Panels split the window in proportions, not fixed pixels; lists
+   and forms scroll instead of clipping; the toolbar wraps onto a second line when it runs
+   out of room. Minimum window size is 1024 x 640. Every layout change is checked at both a
+   small window and full screen.
 
 ## Layout
 

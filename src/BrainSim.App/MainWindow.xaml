@@ -1,0 +1,118 @@
+<Window x:Class="BrainSim.App.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ad="https://github.com/Dirkster99/AvalonDock"
+        xmlns:adt="clr-namespace:AvalonDock.Themes;assembly=AvalonDock.Themes.VS2013"
+        xmlns:views="clr-namespace:BrainSim.App.Views"
+        xmlns:c="clr-namespace:BrainSim.App.Controls"
+        Title="BrainSim" Width="1440" Height="900" MinWidth="1024" MinHeight="640" WindowState="Maximized"
+        Background="{StaticResource BackgroundBrush}">
+  <Grid>
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition />
+      <RowDefinition Height="Auto" />
+    </Grid.RowDefinitions>
+
+    <!-- Toolbar. Items wrap onto a second line on narrow windows. -->
+    <Border Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1" Padding="12,4">
+      <Grid>
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition />
+          <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+        <WrapPanel VerticalAlignment="Center">
+          <TextBlock Text="{Binding SourceLabel}" FontWeight="Bold" VerticalAlignment="Center" Foreground="#34D399" Margin="0,2,12,2" />
+          <Button Content="Live" Padding="12,2" Command="{Binding GoLiveCommand}" Margin="0,2,6,2" />
+          <Button Content="Open session" Padding="12,2" Command="{Binding OpenSessionCommand}" Margin="0,2,24,2" />
+          <TextBlock Text="{Binding ClockText}" Style="{StaticResource Number}" VerticalAlignment="Center" Margin="0,2,18,2" />
+          <TextBlock Text="{Binding PhaseText}" VerticalAlignment="Center" Margin="0,2,24,2" Foreground="{StaticResource TextBrush}" />
+          <StackPanel Orientation="Horizontal" Margin="0,2">
+            <TextBlock Text="Clock" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,6,0" />
+            <ComboBox ItemsSource="{Binding ClockModes}" SelectedItem="{Binding SelectedClockMode}" IsEnabled="{Binding CanEdit}" MinWidth="150" />
+          </StackPanel>
+        </WrapPanel>
+        <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="12,0,0,0">
+          <TextBlock Text="{Binding LmStudioText}" HorizontalAlignment="Right">
+            <TextBlock.Style>
+              <Style TargetType="TextBlock">
+                <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+                <Style.Triggers>
+                  <DataTrigger Binding="{Binding LmStudioOk}" Value="False">
+                    <Setter Property="Foreground" Value="{StaticResource WarnBrush}" />
+                  </DataTrigger>
+                </Style.Triggers>
+              </Style>
+            </TextBlock.Style>
+          </TextBlock>
+          <TextBlock Text="{Binding ProbesText}" Style="{StaticResource Muted}" HorizontalAlignment="Right" />
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <!-- Panels. The 3D brain takes the center in Phase 5; until then the chemistry chart does. -->
+    <ad:DockingManager x:Name="Dock" Grid.Row="1">
+      <ad:DockingManager.Theme>
+        <adt:Vs2013DarkTheme />
+      </ad:DockingManager.Theme>
+      <ad:LayoutRoot>
+        <ad:LayoutPanel Orientation="Vertical">
+          <ad:LayoutPanel Orientation="Horizontal" DockHeight="3*">
+            <ad:LayoutDocumentPane DockWidth="3*">
+              <ad:LayoutDocument Title="Chemistry" ContentId="chemistry" CanClose="False">
+                <views:ChemistryView x:Name="ChemistryPanel" />
+              </ad:LayoutDocument>
+            </ad:LayoutDocumentPane>
+            <ad:LayoutAnchorablePane DockWidth="1.2*" DockMinWidth="300">
+              <ad:LayoutAnchorable Title="Chat" ContentId="chat" CanClose="False" CanHide="False">
+                <views:ChatView x:Name="ChatPanel" />
+              </ad:LayoutAnchorable>
+            </ad:LayoutAnchorablePane>
+          </ad:LayoutPanel>
+          <ad:LayoutAnchorablePane DockHeight="2*" DockMinHeight="200">
+            <ad:LayoutAnchorable Title="Receptors" ContentId="receptors" CanClose="False" CanHide="False">
+              <views:ReceptorsView x:Name="ReceptorsPanel" />
+            </ad:LayoutAnchorable>
+            <ad:LayoutAnchorable Title="Effectors" ContentId="effectors" CanClose="False" CanHide="False">
+              <views:EffectorsView x:Name="EffectorsPanel" />
+            </ad:LayoutAnchorable>
+            <ad:LayoutAnchorable Title="Clock" ContentId="clock" CanClose="False" CanHide="False">
+              <views:ClockView x:Name="ClockPanel" />
+            </ad:LayoutAnchorable>
+            <ad:LayoutAnchorable Title="Sleep" ContentId="sleep" CanClose="False" CanHide="False">
+              <views:SleepView x:Name="SleepPanel" />
+            </ad:LayoutAnchorable>
+            <ad:LayoutAnchorable Title="Lab" ContentId="lab" CanClose="False" CanHide="False">
+              <views:LabView x:Name="LabPanel" />
+            </ad:LayoutAnchorable>
+          </ad:LayoutAnchorablePane>
+        </ad:LayoutPanel>
+      </ad:LayoutRoot>
+    </ad:DockingManager>
+
+    <!-- Timeline -->
+    <Border Grid.Row="2" Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,1,0,0" Padding="12,6">
+      <Grid>
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="Auto" />
+          <ColumnDefinition Width="Auto" />
+          <ColumnDefinition />
+          <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+        <Button Content="Play / Pause" Padding="12,2" Command="{Binding TogglePlayCommand}" ToolTip="Replay from the cursor" />
+        <ComboBox Grid.Column="1" ItemsSource="{Binding ReplaySpeeds}" SelectedItem="{Binding ReplaySpeed}" Margin="8,0" MinWidth="80"
+                  ItemStringFormat="x{0}" ToolTip="Replay speed" />
+        <Grid Grid.Column="2" Margin="8,0">
+          <Grid.RowDefinitions>
+            <RowDefinition Height="8" />
+            <RowDefinition Height="Auto" />
+          </Grid.RowDefinitions>
+          <c:MarkerStrip Markers="{Binding Markers}" First="{Binding FirstTick}" Last="{Binding LastTick}" Margin="6,0" />
+          <Slider x:Name="Timeline" Grid.Row="1" Minimum="{Binding FirstTick}" Maximum="{Binding LastTick}"
+                  Value="{Binding CursorPosition, Mode=TwoWay}" IsMoveToPointEnabled="True" />
+        </Grid>
+        <TextBlock Grid.Column="3" Text="{Binding CursorText}" Style="{StaticResource Number}" VerticalAlignment="Center" MinWidth="140" />
+      </Grid>
+    </Border>
+  </Grid>
+</Window>

@@ -153,11 +153,12 @@ reads tokens from the journal.
 | What | Format | When |
 |---|---|---|
 | Tick journal | Parquet, one row per tick: tick, wall time, phase, C, C-bar, rho, m_k, T, top-p, eta, token | Row group every 1,000 ticks |
-| Events journal | Parquet: tick, type, JSON payload (messages, Lab actions, phase changes, sleep and wake) | Same |
-| Checkpoint | JSON: state, V, surprise stats, clock offset, sleep state, fragments, dream journal | After each response and on exit |
+| Events journal | JSON lines next to the tick journal: tick, time, kind, text, values (messages, Lab actions, sleep transitions, clock changes, errors) (D-25) | Each event, flushed |
+| Checkpoint | JSON: brain state, appraisal state, conversation history | After each response and on exit |
 | Config | `config.yaml`, versioned in git | Lab can save a copy |
 
-A crash loses at most the last row group.
+A crash loses at most the last row group. Everything lives in `%LOCALAPPDATA%\BrainSim`:
+`checkpoint.json` and `journal\session-<start>.parquet` with its `.events.jsonl` (D-26).
 
 ## Spec gaps we have to fill
 

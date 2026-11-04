@@ -1,0 +1,36 @@
+<local:PanelBase x:Class="BrainSim.App.Views.ReceptorsView"
+                 xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                 xmlns:local="clr-namespace:BrainSim.App.Views"
+                 xmlns:sp="clr-namespace:ScottPlot.WPF;assembly=ScottPlot.WPF">
+  <Grid Background="{StaticResource SurfaceBrush}">
+    <Grid.ColumnDefinitions>
+      <ColumnDefinition MinWidth="240" />
+      <ColumnDefinition Width="Auto" />
+    </Grid.ColumnDefinitions>
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition />
+    </Grid.RowDefinitions>
+    <TextBlock Text="Receptor density (rho). Below 1 is tolerance, above 1 is sensitization." Style="{StaticResource Muted}" Margin="10,6" TextWrapping="Wrap" />
+    <sp:WpfPlot x:Name="Plot" Grid.Row="1" />
+    <ScrollViewer Grid.Column="1" Grid.RowSpan="2" VerticalScrollBarVisibility="Auto">
+    <ItemsControl ItemsSource="{Binding SubstanceRows}" Margin="8,10,12,10">
+      <ItemsControl.ItemTemplate>
+        <DataTemplate>
+          <Grid Margin="0,3">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="48" />
+              <ColumnDefinition Width="50" />
+              <ColumnDefinition Width="80" />
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="{Binding Name}" Foreground="{Binding Brush}" FontWeight="SemiBold" />
+            <TextBlock Grid.Column="1" Text="{Binding Rho, StringFormat=0.000}" Style="{StaticResource Number}" />
+            <TextBlock Grid.Column="2" Text="{Binding Status}" Style="{StaticResource Muted}" />
+          </Grid>
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+    </ScrollViewer>
+  </Grid>
+</local:PanelBase>

@@ -1,0 +1,22 @@
+<local:PanelBase x:Class="BrainSim.App.Views.ClockView"
+                 xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                 xmlns:local="clr-namespace:BrainSim.App.Views"
+                 xmlns:c="clr-namespace:BrainSim.App.Controls"
+                 xmlns:sp="clr-namespace:ScottPlot.WPF;assembly=ScottPlot.WPF">
+  <Grid Background="{StaticResource SurfaceBrush}">
+    <Grid.ColumnDefinitions>
+      <ColumnDefinition Width="*" MinWidth="150" MaxWidth="260" />
+      <ColumnDefinition Width="Auto" />
+      <ColumnDefinition Width="2*" MinWidth="220" />
+    </Grid.ColumnDefinitions>
+    <c:ClockDial x:Name="Dial" Margin="8" />
+    <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto">
+      <StackPanel Margin="4,10,12,10">
+        <TextBlock Text="Circadian clock and pineal gland" Style="{StaticResource SectionTitle}" />
+        <TextBlock x:Name="Details" Style="{StaticResource Number}" LineHeight="20" />
+      </StackPanel>
+    </ScrollViewer>
+    <sp:WpfPlot x:Name="Plot" Grid.Column="2" />
+  </Grid>
+</local:PanelBase>
