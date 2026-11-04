@@ -138,12 +138,16 @@ public class T7MemoryTests
         var longReply = new string('x', 1000);
         var (agent, llm, _, _) = Create(r => r.RootElement.GetProperty("messages")[0].GetProperty("content").GetString() == FactExtractor.Instruction ? "" : longReply);
 
+        var learned = 0;
+        agent.FactsLearned += _ => learned++;
         await agent.SendAsync(Fact, cancellationToken: ct);
         await agent.Extraction!.WaitAsync(TimeSpan.FromSeconds(10), ct);
+        await agent.FinishLearningAsync(TimeSpan.Zero);
 
         var input = llm.ExtractionRequests.Single().RootElement.GetProperty("messages")[1].GetProperty("content").GetString()!;
         Assert.Equal($"User: {Fact}\nAssistant: {longReply[..Config.Memory.ExtractionReplyChars]}", input);
         Assert.Equal(Fact + "\n" + longReply, agent.Memory.Snapshot().Single().Text); // the episode keeps the whole turn
+        Assert.Equal(0, learned); // the model found no facts, so nothing was learned
     }
 
     [Fact]
@@ -161,8 +165,11 @@ public class T7MemoryTests
             request.RootElement.GetProperty("messages")[0].GetProperty("content").GetString() == FactExtractor.Instruction
                 ? throw new HttpRequestException("LM Studio went away")
                 : "ok");
+        var failures = new List<string>();
+        noExtraction.MemoryFailed += failures.Add;
         await noExtraction.SendAsync(Fact, cancellationToken: ct);
         await noExtraction.Extraction!.WaitAsync(TimeSpan.FromSeconds(10), ct);
+        Assert.Equal(["Facts could not be extracted from a turn: LM Studio went away"], failures);
         Assert.Single(noExtraction.Memory.Snapshot(), c => c.Kind == ChunkKind.Episode);
         Assert.DoesNotContain(noExtraction.Memory.Snapshot(), c => c.Kind == ChunkKind.Fact);
     }

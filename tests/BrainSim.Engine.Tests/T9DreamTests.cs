@@ -99,7 +99,8 @@ public class T9DreamTests
         Assert.StartsWith("d0 d1 ", agent.Dreamer.Current!.Text);
 
         setClock(agent.Brain.Now);
-        await agent.SendAsync("good morning", cancellationToken: ct);
+        var reply = await agent.SendAsync("good morning", cancellationToken: ct);
+        Assert.Null(reply.Signals.Reward); // the dream in context is not an earlier answer to reward
 
         var dream = agent.Dreamer.Journal[^1];
         Assert.True(dream.Interrupted);
@@ -108,9 +109,53 @@ public class T9DreamTests
         Assert.True(dream.Chemistry[(int)Substance.Norepinephrine] < 0.15);
         Assert.True(dream.Chemistry[(int)Substance.Acetylcholine] > 1.1);
 
-        var messages = llm.ChatRequests[^1].RootElement.GetProperty("messages").EnumerateArray().ToList();
-        Assert.Contains(messages, m => m.GetProperty("role").GetString() == "system"
-            && m.GetProperty("content").GetString()!.Contains("still remember the dream: d0 d1"));
+        Assert.StartsWith("d0 d1", dream.Text);
+        var system = llm.ChatRequests[^1].RootElement.GetProperty("messages")[0].GetProperty("content").GetString();
+        Assert.Equal($"{Config.Llm.SystemPrompt}\n\nYou were dreaming when this message woke you, and you still remember the dream: {dream.Text}", system);
+    }
+
+    [Fact]
+    public void The_agent_replays_its_episodes_in_NREM_sleep()
+    {
+        var (agent, _, _) = Create(Config);
+        var replayed = new List<Chunk>();
+        agent.Memory.Replayed += replayed.Add;
+
+        agent.Brain.AdvanceTo(Night.AddMinutes(80)); // cycle 1 up to its REM: N1, N2, N3
+
+        Assert.NotEmpty(replayed);
+    }
+
+    [Fact]
+    public void With_no_memories_REM_has_nothing_to_dream_about()
+    {
+        var fake = new FakeLmStudio(replyTokens: 40);
+        var client = new LmStudioClient(new HttpClient(fake) { BaseAddress = new Uri(Config.Llm.BaseUrl) }, Config.Llm);
+        var agent = new Agent(Config, client, new Dictionary<string, LinearProbe>(), () => Night);
+        var started = 0;
+        agent.Dreamer.Started += _ => started++;
+        agent.Brain.Chemistry[Substance.Adenosine] = Config.Sleep.ForcedAdenosine;
+
+        agent.Brain.AdvanceTo(Night.AddMinutes(81).AddSeconds(35));
+
+        Assert.Equal(SleepPhase.Rem, agent.Brain.Phase);
+        Assert.Equal(0, started);
+        Assert.Null(agent.Dreamer.Current);
+        Assert.Empty(fake.CompletionRequests);
+    }
+
+    [Fact]
+    public async Task A_dream_the_model_cannot_generate_is_reported()
+    {
+        var (agent, llm, _) = Create(Config);
+        var failures = new List<string>();
+        agent.Dreamer.Failed += failures.Add;
+        llm.Down = true;
+
+        agent.Brain.AdvanceTo(Night.AddMinutes(81).AddSeconds(35));
+        await agent.Dreamer.Generation!.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+
+        Assert.Equal(["The dream could not be generated: LM Studio is not running"], failures);
     }
 
     [Fact]

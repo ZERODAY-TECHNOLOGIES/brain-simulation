@@ -17,17 +17,15 @@ public sealed record AgentReply(
 /// <summary>Everything needed to pick a session back up: brain, appraisal, conversation and dreams.</summary>
 public sealed record AgentCheckpoint(BrainCheckpoint Brain, AppraiserState Appraisal, List<ChatMessage> History, DreamState? Dreams = null)
 {
-    private static readonly JsonSerializerOptions Json = new() { WriteIndented = false };
-
     public async Task SaveAsync(string path, CancellationToken cancellationToken = default)
     {
         var temp = path + ".tmp";
-        await File.WriteAllTextAsync(temp, JsonSerializer.Serialize(this, Json), cancellationToken);
+        await File.WriteAllTextAsync(temp, JsonSerializer.Serialize(this), cancellationToken);
         File.Move(temp, path, overwrite: true); // never leave a half-written checkpoint behind
     }
 
     public static async Task<AgentCheckpoint?> LoadAsync(string path, CancellationToken cancellationToken = default) =>
-        File.Exists(path) ? JsonSerializer.Deserialize<AgentCheckpoint>(await File.ReadAllTextAsync(path, cancellationToken), Json) : null;
+        File.Exists(path) ? JsonSerializer.Deserialize<AgentCheckpoint>(await File.ReadAllTextAsync(path, cancellationToken)) : null;
 }
 
 /// <summary>
