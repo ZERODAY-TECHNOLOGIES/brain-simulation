@@ -99,8 +99,10 @@ public static class MemoryFile
 
             return chunks;
         }
-        catch (Exception e) when (e is EndOfStreamException or InvalidDataException or IOException or ArgumentException)
+        catch (Exception)
         {
+            // Corrupt bytes throw whatever BinaryReader or the array allocation throws: EndOfStream, Format,
+            // OutOfMemory, Overflow. Any of them means the file cannot be trusted.
             // Keep the file for a look later; start with an empty memory rather than fail to start.
             File.Move(path, path + ".bad", overwrite: true);
             return [];

@@ -150,7 +150,7 @@ public sealed record MemoryConfig
     public double Threshold { get; init; } = -3.0;
     public double Gain { get; init; } = 4;
     public int RecallCount { get; init; } = 4;
-    public double DuplicateCosine { get; init; } = 0.9;
+    public double DuplicateCosine { get; init; } = 0.97;
     public double FamiliarityDamping { get; init; } = 0.5;
     public double ReplayMinutes { get; init; } = 5;
     public double ReplayWeight { get; init; } = 0.5;

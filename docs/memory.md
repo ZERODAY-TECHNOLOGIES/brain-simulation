@@ -85,7 +85,7 @@ learned under stress to be lost, and E3 already says chronic stress freezes plas
    world only. If there are none, write nothing."
 3. Each line becomes a candidate: list marks and numbering stripped, kept if it is 3 to 200
    characters, has no question mark, and does not end in a colon. At most 5 per episode.
-4. Candidates are embedded in one call. A candidate with cosine above 0.9 to an existing
+4. Candidates are embedded in one call. A candidate with cosine above 0.97 to an existing
    fact adds a presentation to that fact instead of creating a new one.
 5. The result is applied on the engine loop at a tick boundary and written to the events
    journal, so replays stay exact.

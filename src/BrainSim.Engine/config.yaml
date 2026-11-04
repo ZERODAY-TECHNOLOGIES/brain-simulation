@@ -200,7 +200,7 @@ memory:
   threshold: -3.0             # ours: tau at baseline
   gain: 4                     # ours: m_k is small, about +-0.12 at twice baseline
   recall_count: 4             # ours: k facts at most per message
-  duplicate_cosine: 0.9       # ours: a fact this close to an existing one strengthens it instead
+  duplicate_cosine: 0.97      # ours: restatements measured 0.984 to 0.990, facts that differ in a value 0.918 to 0.956
   familiarity_damping: 0.5    # ours: S * (1 - damping * familiarity)
   replay_minutes: 5           # ours: one NREM replay every this long
   replay_weight: 0.5          # ours: presentation weight of one replay, before DA

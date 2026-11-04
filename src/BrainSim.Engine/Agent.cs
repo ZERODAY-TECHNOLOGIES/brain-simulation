@@ -210,6 +210,20 @@ public sealed class Agent
         }
     }
 
+    /// <summary>
+    /// On close: waits up to <paramref name="timeout"/> for the last extraction and stores its facts, which would
+    /// otherwise wait for a tick that never comes. Call once the engine loop has stopped.
+    /// </summary>
+    public async Task FinishLearningAsync(TimeSpan timeout)
+    {
+        if (Extraction is { } extraction)
+        {
+            await Task.WhenAny(extraction, Task.Delay(timeout));
+        }
+
+        ApplyLearnedFacts();
+    }
+
     /// <summary>On the engine loop: store the facts extraction produced, with the chemistry of their episode.</summary>
     private void ApplyLearnedFacts()
     {

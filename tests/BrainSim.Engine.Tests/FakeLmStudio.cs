@@ -21,6 +21,9 @@ internal sealed class FakeLmStudio(int replyTokens) : HttpMessageHandler
     /// <summary>When set, embedding and chat calls throw, like LM Studio going away.</summary>
     public bool Down { get; set; }
 
+    /// <summary>How long a fact extraction request takes, like the real model does.</summary>
+    public TimeSpan ExtractionDelay { get; init; }
+
     /// <summary>When set, only the embeddings endpoint fails; chat keeps answering.</summary>
     public bool EmbeddingsDown { get; set; }
 
@@ -30,6 +33,12 @@ internal sealed class FakeLmStudio(int replyTokens) : HttpMessageHandler
         if (Down || (EmbeddingsDown && request.RequestUri!.AbsolutePath.EndsWith("embeddings")))
         {
             throw new HttpRequestException("LM Studio is not running");
+        }
+
+        if (ExtractionDelay > TimeSpan.Zero && request.RequestUri!.AbsolutePath.EndsWith("chat/completions")
+            && JsonDocument.Parse(body).RootElement.GetProperty("messages")[0].GetProperty("content").GetString() == Memory.FactExtractor.Instruction)
+        {
+            await Task.Delay(ExtractionDelay, cancellationToken);
         }
 
         string response;

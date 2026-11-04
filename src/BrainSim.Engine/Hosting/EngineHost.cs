@@ -182,6 +182,7 @@ public sealed class EngineHost : IAsyncDisposable
 
         if (_journal is not null)
         {
+            await Agent.FinishLearningAsync(TimeSpan.FromSeconds(5)); // the last turn's facts, often still being extracted
             await Agent.Checkpoint().SaveAsync(CheckpointPath);
             SaveMemory();
             await _journal.DisposeAsync();

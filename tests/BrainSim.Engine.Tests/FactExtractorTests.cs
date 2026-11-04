@@ -38,8 +38,8 @@ public class FactExtractorTests
         var memory = new DeclarativeMemory(Config.Memory);
         var first = memory.AddOrStrengthenFact("The user has a black cat.", [1f, 0f], 1, default, Now);
 
-        // Cosine 0.95: the same fact in other words.
-        var again = memory.AddOrStrengthenFact("the user owns a black cat", [0.95f, MathF.Sqrt(1 - 0.95f * 0.95f)], 2, default, Now.AddMinutes(1));
+        // Cosine 0.985: the same fact in other words (real restatements measured 0.984 to 0.990).
+        var again = memory.AddOrStrengthenFact("the user owns a black cat", [0.985f, MathF.Sqrt(1 - 0.985f * 0.985f)], 2, default, Now.AddMinutes(1));
         Assert.Same(first, again);
         Assert.Equal(2, first.Presentations.Count);
 
@@ -47,6 +47,19 @@ public class FactExtractorTests
         var other = memory.AddOrStrengthenFact("The user has a dog.", [0.8f, 0.6f], 3, default, Now.AddMinutes(2));
         Assert.NotSame(first, other);
         Assert.Equal(2, memory.Snapshot().Count);
+    }
+
+    /// <summary>"The user is 34 years old." and "... 52 years old." measured 0.956: a correction, not a restatement.</summary>
+    [Fact]
+    public void A_fact_that_differs_in_a_value_is_kept_apart()
+    {
+        var memory = new DeclarativeMemory(Config.Memory);
+        var old = memory.AddOrStrengthenFact("The user is 34 years old.", [1f, 0f], 1, default, Now);
+
+        var corrected = memory.AddOrStrengthenFact("The user is 52 years old.", [0.956f, MathF.Sqrt(1 - 0.956f * 0.956f)], 2, default, Now.AddMinutes(1));
+
+        Assert.NotSame(old, corrected);
+        Assert.Single(old.Presentations);
     }
 
     [Fact]

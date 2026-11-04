@@ -100,6 +100,32 @@ public class HostingTests
     }
 
     [Fact]
+    public async Task Closing_right_after_a_reply_keeps_its_facts()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var directory = Path.Combine(Path.GetTempPath(), $"brainsim-host-{Guid.NewGuid():N}");
+        var fake = new FakeLmStudio(20) { ExtractionDelay = TimeSpan.FromMilliseconds(500) };
+        var llm = new LmStudioClient(new HttpClient(fake) { BaseAddress = new Uri(Config.Llm.BaseUrl) }, Config.Llm);
+        try
+        {
+            await using (var host = new EngineHost(Config, llm, new Dictionary<string, LinearProbe>(), directory))
+            {
+                var replied = new TaskCompletionSource();
+                host.Replied += _ => replied.TrySetResult();
+                await host.StartAsync();
+                host.Send("hello");
+                await replied.Task.WaitAsync(TimeSpan.FromSeconds(10), ct);
+            } // closed while the extraction is still running
+
+            Assert.Contains(MemoryFile.Load(Path.Combine(directory, "memory.bin")), c => c.Kind == ChunkKind.Fact);
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task A_phase_6_checkpoint_brings_its_dream_fragments_into_memory()
     {
         var directory = Path.Combine(Path.GetTempPath(), $"brainsim-host-{Guid.NewGuid():N}");

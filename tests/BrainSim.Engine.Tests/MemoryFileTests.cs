@@ -51,6 +51,32 @@ public sealed class MemoryFileTests : IDisposable
         Assert.False(File.Exists(_path));
     }
 
+    [Theory]
+    [InlineData("bad string length")]
+    [InlineData("huge embedding")]
+    public void Any_corrupt_file_is_set_aside(string corruption)
+    {
+        using (var writer = new BinaryWriter(File.Create(_path)))
+        {
+            if (corruption == "bad string length")
+            {
+                writer.Write(new byte[] { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF }); // an invalid 7-bit length: FormatException
+            }
+            else
+            {
+                writer.Write("MEM1");
+                writer.Write(1);         // one chunk
+                writer.Write(1);         // id
+                writer.Write((byte)0);   // kind
+                writer.Write("text");
+                writer.Write(int.MaxValue); // embedding length: OutOfMemoryException
+            }
+        }
+
+        Assert.Empty(MemoryFile.Load(_path));
+        Assert.True(File.Exists(_path + ".bad"));
+    }
+
     [Fact]
     public void A_missing_file_is_an_empty_memory()
     {

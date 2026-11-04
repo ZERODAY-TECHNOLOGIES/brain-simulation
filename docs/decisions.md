@@ -320,6 +320,9 @@ See [conventions.md](conventions.md#git).
     Given the bare turn, qwen3.5-0.8b listed facts from the reply and kept the user's own in
     0 of 5 tries; labeled and cut, in 5 of 5, and it words them as "the user's sister"
     rather than "your sister".
+  - `duplicate_cosine` is 0.97, not 0.9, for the same reason: restatements measured 0.984 to
+    0.990, but facts that differ in a value ("34 years old" and "52 years old") 0.918 to 0.956.
+    At 0.9 a correction was merged into the old fact, which then came back stronger.
   - CORT weakens encoding (an extra `memory_encoding` entry, emax -0.5), so a fact told under
     stress is not recalled later, as T7 asks.
   - Dream seeds now come from memory episodes. The old fragment list is read once from a
