@@ -170,7 +170,9 @@ and are marked as ours, not the spec's.
 | g_GABA in the m_k denominator | 1.0 |
 | p_max of the pineal | Chosen so MEL settles near 2.0 in the dark window |
 | GABA tonic production | A source term that exactly balances decay at baseline |
-| CORT circadian shape | Minimum at sleep onset, linear rise from 03:00, +50% peak in the first 30 minutes after waking |
+| CORT circadian shape | Target 0.6 from 21:00, linear rise from 03:00 back to 1.0 at 07:00. Awakening peak as secretion (D-22) |
+| ADO threshold for forced sleep | ADO is clamped at 5.0, so "ADO > 5.0" is read as ADO >= 5.0 |
+| "Repeated light at night" | At least 60 minutes of light inside one dark window |
 | Max length and top-p mappings | Linear in (C - 1) clamped to the spec bounds (-30% length, top-p 0.95 to 0.8) |
 | "Elevated" thresholds | C > 1.5 |
 | Rho per channel or per substance | Per substance (same gamma everywhere), until a channel needs its own |

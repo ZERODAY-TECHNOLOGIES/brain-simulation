@@ -160,7 +160,32 @@ See [conventions.md](conventions.md#git).
   instability as a feature (contradicts the spec's validation).
 - **Check:** `StabilityTests` runs on every build.
 
+### D-21. Sleep pressure is measured from the ADO baseline
+- **Date:** 2026-11-04
+- **Context:** The spec defines P = ADO - C(phi) and wakes the agent when P < 0.5. ADO
+  drains toward its baseline of 1.0 in sleep and C(phi) never exceeds 0.5, so P never drops
+  below 0.5 and natural wake could never happen.
+- **Decision:** P = (ADO - b_ADO) - C(phi), the same baseline-relative reading used by W and
+  the receptors. This also keeps T8's "ADO under 1.2 after a full night" meaningful.
+- **Consequence:** Falling asleep at about 22:30 needs ADO around 3.2, which means about
+  2,200 generated tokens since the last sleep (see O-05).
+
+### D-22. The cortisol awakening response is secretion, not a moved target
+- **Date:** 2026-11-04
+- **Context:** Raising b_CORT to 1.5 after waking makes W read CORT as below its target,
+  which pushes 5-HT up and drags CORT back down. The peak only reached +20%.
+- **Decision:** After a natural wake, CORT gets a constant source for 30 minutes, sized so
+  CORT alone would reach 1.5. The CORT and 5-HT loop carries the peak to about +60%.
+  T8 accepts a peak between 1.35 and 1.75.
+
 ## Open
+
+### O-05. Should ADO also rise with time awake?
+The spec says ADO grows only with effort (generated tokens). A user who chats little gives
+the agent too little ADO to ever fall asleep, so it would stay awake through the night,
+with MEL high but P under 2.0. Borbely's process S rises with time awake on its own.
+Options: keep the spec (sleep only after enough conversation), or add a small per-tick
+ADO rise while awake, so a quiet day still ends in sleep.
 
 ### O-03. Probe training data
 Sentiment (for r) and toxicity (for A) have well-known public English sets. Social warmth

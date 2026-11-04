@@ -12,6 +12,9 @@ public sealed record EngineConfig
     public List<InteractionConfig> Interactions { get; init; } = [];
     public ReceptorConfig Receptors { get; init; } = new();
     public ModulationConfig Modulation { get; init; } = new();
+    public AppraisalConfig Appraisal { get; init; } = new();
+    public CircadianConfig Circadian { get; init; } = new();
+    public SleepConfig Sleep { get; init; } = new();
 
     public static EngineConfig LoadDefault() => Load(Path.Combine(AppContext.BaseDirectory, "config.yaml"));
 
@@ -48,6 +51,19 @@ public sealed record EngineConfig
         foreach (var term in Modulation.Channels.Values.SelectMany(t => t))
         {
             Substances.Parse(term.Substance);
+        }
+
+        foreach (var (phase, targets) in Sleep.PhaseTargets)
+        {
+            if (phase is not ("N1" or "N2" or "N3" or "REM"))
+            {
+                throw new InvalidDataException($"config.yaml: unknown sleep phase '{phase}' in phase_targets.");
+            }
+
+            foreach (var substance in targets.Keys)
+            {
+                Substances.Parse(substance);
+            }
         }
     }
 }
@@ -95,4 +111,40 @@ public sealed record ChannelTermConfig
     public double N { get; init; } = 1.5;
     public string Shape { get; init; } = "hill";
     public double Peak { get; init; } = 1.0;
+}
+
+public sealed record AppraisalConfig
+{
+    public double EffortGain { get; init; } = 0.001;
+}
+
+public sealed record CircadianConfig
+{
+    public double DarkStart { get; init; } = 21;
+    public double DarkEnd { get; init; } = 7;
+    public double RampHours { get; init; } = 1;
+    public double LightMinutes { get; init; } = 30;
+    public double JetLagShiftMinutes { get; init; } = 15;
+    public double JetLagLightMinutes { get; init; } = 60;
+    public double MelatoninProduction { get; init; } = 3.85e-5;
+    public double CortisolNight { get; init; } = 0.6;
+    public double CortisolRiseStart { get; init; } = 3;
+    public double CortisolAwakening { get; init; } = 1.5;
+    public double CortisolAwakeningMinutes { get; init; } = 30;
+}
+
+public sealed record SleepConfig
+{
+    public double OnsetPressure { get; init; } = 2.0;
+    public double OnsetMelatonin { get; init; } = 1.5;
+    public double OnsetIdleMinutes { get; init; } = 10;
+    public double ForcedAdenosine { get; init; } = 5.0;
+    public double WakePressure { get; init; } = 0.5;
+    public double CycleMinutes { get; init; } = 90;
+    public double N1Fraction { get; init; } = 0.05;
+    public double N3FractionStart { get; init; } = 0.40;
+    public double N3FractionStep { get; init; } = -0.09;
+    public double RemFractionStart { get; init; } = 0.10;
+    public double RemFractionStep { get; init; } = 0.08;
+    public Dictionary<string, Dictionary<string, double>> PhaseTargets { get; init; } = [];
 }

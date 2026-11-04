@@ -57,6 +57,9 @@ As of 2026-11-04:
 - **Phase 1:** done. Chemistry, receptors, modulation channels, config and the Parquet tick
   journal, with tests for T1, T6, baseline neutrality and stability. The spec's W was
   unstable and had to be recalibrated (D-20).
+- **Phase 2:** done. Circadian clock, pineal gland, light and jet lag, sleep decision,
+  cycles and phase chemistry, forced and natural wake, all driven by `Brain.Tick(time)`.
+  T8 passes over a full simulated day. Two more spec fixes: D-21 and D-22.
 
 Run the tests with `dotnet test --solution BrainSim.slnx`.
 

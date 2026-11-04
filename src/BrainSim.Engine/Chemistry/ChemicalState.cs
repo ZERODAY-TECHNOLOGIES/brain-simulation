@@ -4,7 +4,8 @@ namespace BrainSim.Engine.Chemistry;
 
 /// <summary>
 /// The 10 concentrations and their per-tick dynamics (spec: "Starea chimica si dinamica").
-/// C_i(t+1) = C_i + [ -k_i (C_i - b_i) + impulse_i + sum_j W_ij (C_j - b_j) ], clipped to [min, max].
+/// C_i(t+1) = C_i + [ -k_i (C_i - b_i) + impulse_i + source_i + sum_j W_ij (C_j - b_j) ], clipped to [min, max].
+/// source_i is continuous production per tick, used for MEL from the pineal gland.
 /// </summary>
 public sealed class ChemicalState
 {
@@ -51,6 +52,9 @@ public sealed class ChemicalState
     /// <summary>Current targets b_i. Equal to the resting baseline while awake, phase targets during sleep.</summary>
     public double[] Baseline { get; } = new double[N];
 
+    /// <summary>Continuous production per tick. Stays until changed.</summary>
+    public double[] Source { get; } = new double[N];
+
     public double RestingBaseline { get; }
 
     /// <summary>ADO only decays while asleep.</summary>
@@ -80,7 +84,7 @@ public sealed class ChemicalState
         for (var i = 0; i < N; i++)
         {
             var k = i == Ado && !Asleep ? 0.0 : _k[i];
-            var d = -k * (C[i] - Baseline[i]) + impulse[i];
+            var d = -k * (C[i] - Baseline[i]) + impulse[i] + Source[i];
             for (var j = 0; j < N; j++)
             {
                 d += _w[i, j] * (C[j] - Baseline[j]);

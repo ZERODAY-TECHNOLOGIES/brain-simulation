@@ -102,3 +102,42 @@ modulation:
       - { substance: CORT, emax: 0.5 }
     memory_consolidation:
       - { substance: DA,   emax: 0.5 }
+
+# Appraisal. Only effort is used so far; the rest arrives in Phase 3.
+appraisal:
+  effort_gain: 0.001          # ADO += effort_gain * tokens generated in the response
+
+# Circadian clock and pineal gland. Hours are clock hours, 0 to 24.
+circadian:
+  dark_start: 21.0
+  dark_end: 7.0
+  ramp_hours: 1.0             # darkness ramps up and down over this long at both ends
+  light_minutes: 30           # a user message counts as light for this long
+  jet_lag_shift_minutes: 15   # clock delay after a night with repeated light
+  jet_lag_light_minutes: 60   # ours, not in spec: light needed in one dark window to count as "repeated"
+  melatonin_production: 3.85e-5  # ours, not in spec: p_max per tick, settles MEL near 2.0 in full darkness
+  cortisol_night: 0.6         # ours, not in spec: CORT target from dark start until the rise
+  cortisol_rise_start: 3.0    # CORT rises linearly from here to dark_end
+  cortisol_awakening: 1.5     # CORT peak after a natural wake (+50%), reached by secretion over the next minutes
+  cortisol_awakening_minutes: 30
+
+# Sleep decision and architecture.
+sleep:
+  onset_pressure: 2.0         # fall asleep when P > this, P = (ADO - b) - C(phi) (D-21)
+  onset_melatonin: 1.5        # and MEL > this
+  onset_idle_minutes: 10      # and the user has been idle this long
+  forced_adenosine: 5.0       # fall asleep regardless when ADO reaches this (the clamp max)
+  wake_pressure: 0.5          # wake naturally when P < this and the dark window is over
+  cycle_minutes: 90
+  n1_fraction: 0.05
+  n3_fraction_start: 0.40
+  n3_fraction_step: -0.09     # per cycle
+  rem_fraction_start: 0.10
+  rem_fraction_step: 0.08     # per cycle
+  # Baseline targets b_i per phase. Substances not listed keep their resting baseline.
+  # CORT and MEL follow the clock, not the phase.
+  phase_targets:
+    N1:  { NE: 0.6,  5-HT: 0.7,  ACh: 0.6, DA: 0.9, GH: 1.0 }
+    N2:  { NE: 0.4,  5-HT: 0.5,  ACh: 0.4, DA: 0.8, GH: 1.5 }
+    N3:  { NE: 0.2,  5-HT: 0.4,  ACh: 0.2, DA: 0.7, GH: 3.0 }
+    REM: { NE: 0.05, 5-HT: 0.05, ACh: 1.4, DA: 1.1, GH: 1.0 }
