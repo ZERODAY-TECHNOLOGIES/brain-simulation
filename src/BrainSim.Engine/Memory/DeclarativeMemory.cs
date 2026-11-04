@@ -1,4 +1,5 @@
 using BrainSim.Engine.Config;
+using BrainSim.Engine.Sleep;
 
 namespace BrainSim.Engine.Memory;
 
@@ -16,8 +17,12 @@ public sealed class DeclarativeMemory(MemoryConfig config, int seed = 11)
     private readonly List<Chunk> _chunks = [];
     private readonly Random _random = new(seed);
     private int _nextId;
+    private DateTime _lastReplay = DateTime.MinValue;
 
     public MemoryConfig Config => config;
+
+    /// <summary>Raised on the engine loop after each NREM replay, with the replayed episode.</summary>
+    public event Action<Chunk>? Replayed;
 
     /// <summary>Copies of every chunk, for the UI thread.</summary>
     public IReadOnlyList<Chunk> Snapshot()
@@ -130,6 +135,55 @@ public sealed class DeclarativeMemory(MemoryConfig config, int seed = 11)
                 .Max();
             return double.IsNegativeInfinity(best) ? 0 : Math.Clamp((best - Threshold(m)) / 2, 0, 1);
         }
+    }
+
+    /// <summary>Weight of one sleep replay: replay_weight * clip(1 + g m_consolidation, 0, 3), x0.3 in N2, 0 outside NREM.</summary>
+    public double ReplayWeight(SleepPhase phase, MemoryModulation m)
+    {
+        var rate = phase switch
+        {
+            SleepPhase.N3 => 1.0,
+            SleepPhase.N2 => config.N2ReplayRate,
+            _ => 0,
+        };
+        return rate * config.ReplayWeight * Math.Clamp(1 + config.Gain * m.Consolidation, 0, 3);
+    }
+
+    /// <summary>
+    /// NREM replay (spec: "Replay"): every replay_minutes of N2 or N3, the most salient episode (newest on a tie)
+    /// and its facts get a presentation, and its salience decays so the others get a turn.
+    /// </summary>
+    public void OnTick(Brain brain)
+    {
+        var weight = ReplayWeight(brain.Phase, MemoryModulation.From(brain.Modulation));
+        if (weight <= 0 || (brain.Now - _lastReplay).TotalMinutes < config.ReplayMinutes)
+        {
+            return;
+        }
+
+        Chunk? episode;
+        lock (_gate)
+        {
+            episode = _chunks
+                .Where(c => c is { Kind: ChunkKind.Episode, Archived: false })
+                .OrderByDescending(c => c.Salience)
+                .ThenByDescending(c => c.Created)
+                .FirstOrDefault();
+            if (episode is null)
+            {
+                return;
+            }
+
+            foreach (var chunk in _chunks.Where(c => c == episode || c.EpisodeId == episode.Id))
+            {
+                chunk.Presentations.Add(new Presentation(brain.Now, weight));
+            }
+
+            episode.Salience *= config.SalienceDecay;
+        }
+
+        _lastReplay = brain.Now;
+        Replayed?.Invoke(episode);
     }
 
     private void Add(Chunk chunk, DateTime now)
