@@ -246,7 +246,7 @@ public sealed class EngineHost : IAsyncDisposable
                     Log(EventKinds.User, message, values);
                     if (recalled.Count > 0)
                     {
-                        Log(EventKinds.Memory, $"Recalled {recalled.Count} facts: {string.Join("; ", recalled)}");
+                        Log(EventKinds.Memory, $"Recalled {recalled.Count} {(recalled.Count == 1 ? "fact" : "facts")}: {string.Join("; ", recalled)}");
                     }
 
                     Appraised?.Invoke(message, signals, sampling, recalled);
