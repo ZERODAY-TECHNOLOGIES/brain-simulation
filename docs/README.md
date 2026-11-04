@@ -17,6 +17,7 @@ These docs explain how we build it and where we deliberately differ from it.
 | [architecture.md](architecture.md) | System design, solution layout, execution loop, deviations from the spec |
 | [ui-design.md](ui-design.md) | Layout, panels, visual language, colors, 3D scene and models |
 | [conventions.md](conventions.md) | Code style, project rules, testing, git, writing rules |
+| [memory.md](memory.md) | Phase 7: the ACT-R declarative memory and how E4 drives it |
 
 ## The short version
 
