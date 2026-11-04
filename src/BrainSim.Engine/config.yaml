@@ -177,3 +177,15 @@ llm:
   embedding_prefix: "classification: "   # nomic-embed task prefix, used for probes and surprise
   system_prompt: You are a helpful assistant.
   history_messages: 20                   # past messages sent with each request
+
+# Dreams in REM (spec: "Visele (REM)"), reduced mode (architecture.md "Dreams in reduced mode").
+dreams:
+  seed_min: 3
+  seed_max: 5
+  detension: 0.2              # each fragment used as a seed loses this share of its emotional tag
+  seconds_per_token: 2        # one dream token per 2 seconds of REM
+  settle_seconds: 30          # ours, not in spec: start once REM chemistry has settled, so T comes out near 1.0
+  max_tokens: 1200            # ours, not in spec: the longest REM (about 40 minutes) needs about 1100
+  tag_floor: 0.05             # ours, not in spec: calm memories can still be dreamed, just rarely
+  fragments_kept: 100         # ours, not in spec: recent memory until ACT-R exists
+  journal_kept: 50            # ours, not in spec

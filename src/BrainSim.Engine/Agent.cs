@@ -2,6 +2,7 @@ using System.Text;
 using System.Text.Json;
 using BrainSim.Engine.Appraisal;
 using BrainSim.Engine.Config;
+using BrainSim.Engine.Dreams;
 using BrainSim.Engine.Effectors;
 using BrainSim.Engine.Llm;
 
@@ -9,8 +10,8 @@ namespace BrainSim.Engine;
 
 public sealed record AgentReply(string Text, AppraisalSignals Signals, SamplingParameters Sampling, int Tokens);
 
-/// <summary>Everything needed to pick a session back up: brain, appraisal and conversation.</summary>
-public sealed record AgentCheckpoint(BrainCheckpoint Brain, AppraiserState Appraisal, List<ChatMessage> History)
+/// <summary>Everything needed to pick a session back up: brain, appraisal, conversation and dreams.</summary>
+public sealed record AgentCheckpoint(BrainCheckpoint Brain, AppraiserState Appraisal, List<ChatMessage> History, DreamState? Dreams = null)
 {
     private static readonly JsonSerializerOptions Json = new() { WriteIndented = false };
 
@@ -45,10 +46,14 @@ public sealed class Agent
         _clock = clock;
         Brain = new Brain(config, clock());
         Appraiser = new Appraiser(config.Appraisal, probes);
+        Dreamer = new Dreamer(config, llm);
+        Brain.Ticked += (brain, _) => Dreamer.OnTick(brain);
+        Brain.Transition += Dreamer.OnTransition;
     }
 
     public Brain Brain { get; }
     public Appraiser Appraiser { get; }
+    public Dreamer Dreamer { get; }
     public IReadOnlyList<ChatMessage> History => _history;
 
     public async Task<AgentReply> SendAsync(
@@ -61,6 +66,12 @@ public sealed class Agent
         var now = _clock();
         Brain.AdvanceTo(now);
         Brain.OnUserMessage(Brain.Now);
+
+        // A message that woke the brain in REM: the dream it broke off is still in mind (spec: "Visele (REM)").
+        if (Dreamer.TakeWakeMemory() is { Length: > 0 } dream)
+        {
+            _history.Add(ChatMessage.System($"You were dreaming when this message woke you, and you still remember the dream: {dream}"));
+        }
 
         // 2 to 4. Appraise the message and schedule the impulses.
         var embedding = (await _llm.EmbedAsync([message], cancellationToken))[0];
@@ -103,16 +114,20 @@ public sealed class Agent
         }
         Brain.OnResponseFinished(tokens);
         Appraiser.LearnExpectedReward();
+
+        // The turn becomes a fragment of recent memory, tagged with the stress and alertness it was lived in.
+        Dreamer.Remember(message + "\n" + text, Brain.Chemistry.C, Brain.Now);
         return new AgentReply(text.ToString(), signals, sampling, tokens);
     }
 
     /// <summary>12. Snapshot for the next session.</summary>
-    public AgentCheckpoint Checkpoint() => new(Brain.Save(), Appraiser.Save(), [.. _history]);
+    public AgentCheckpoint Checkpoint() => new(Brain.Save(), Appraiser.Save(), [.. _history], Dreamer.Save());
 
     public void Restore(AgentCheckpoint checkpoint)
     {
         Brain.Restore(checkpoint.Brain);
         Appraiser.Restore(checkpoint.Appraisal);
+        Dreamer.Restore(checkpoint.Dreams);
         _history.Clear();
         _history.AddRange(checkpoint.History);
     }

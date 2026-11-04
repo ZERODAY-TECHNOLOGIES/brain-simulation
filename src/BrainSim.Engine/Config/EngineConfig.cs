@@ -17,6 +17,7 @@ public sealed record EngineConfig
     public SleepConfig Sleep { get; init; } = new();
     public LlmConfig Llm { get; init; } = new();
     public SamplingConfig Sampling { get; init; } = new();
+    public DreamConfig Dreams { get; init; } = new();
 
     public static EngineConfig LoadDefault() => Load(Path.Combine(AppContext.BaseDirectory, "config.yaml"));
 
@@ -137,6 +138,19 @@ public sealed record AppraisalConfig
     public double SurpriseMax { get; init; } = 3.0;
     public double ProbeFloor { get; init; } = 0.5;
     public Dictionary<string, Dictionary<string, double>> Gains { get; init; } = [];
+}
+
+public sealed record DreamConfig
+{
+    public int SeedMin { get; init; } = 3;
+    public int SeedMax { get; init; } = 5;
+    public double Detension { get; init; } = 0.2;
+    public double SecondsPerToken { get; init; } = 2;
+    public double SettleSeconds { get; init; } = 30;
+    public int MaxTokens { get; init; } = 1200;
+    public double TagFloor { get; init; } = 0.05;
+    public int FragmentsKept { get; init; } = 100;
+    public int JournalKept { get; init; } = 50;
 }
 
 public sealed record SamplingConfig

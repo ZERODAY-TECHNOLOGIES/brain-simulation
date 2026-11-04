@@ -71,6 +71,42 @@ public sealed class LmStudioClient(HttpClient http, LlmConfig config)
         }
     }
 
+    /// <summary>
+    /// Raw continuation of <paramref name="prompt"/>, with no chat template and no instructions. Used for dreams.
+    /// LM Studio streams one token per chunk here too, but returns no logprobs on this endpoint.
+    /// </summary>
+    public async IAsyncEnumerable<string> StreamCompletionAsync(
+        string prompt,
+        SamplingParameters sampling,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        var body = new CompletionRequest(config.ChatModel, prompt, sampling.Temperature, sampling.TopP, sampling.MaxTokens, Stream: true);
+        using var request = new HttpRequestMessage(HttpMethod.Post, "completions") { Content = JsonContent.Create(body, options: Json) };
+        using var response = await http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+        response.EnsureSuccessStatusCode();
+        using var reader = new StreamReader(await response.Content.ReadAsStreamAsync(cancellationToken));
+
+        while (await reader.ReadLineAsync(cancellationToken) is { } line)
+        {
+            if (!line.StartsWith("data: ", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var data = line["data: ".Length..];
+            if (data == "[DONE]")
+            {
+                yield break;
+            }
+
+            var chunk = JsonSerializer.Deserialize<CompletionChunk>(data, Json);
+            if (chunk?.Choices is [{ Text: { Length: > 0 } text }, ..])
+            {
+                yield return text;
+            }
+        }
+    }
+
     /// <summary>Embeds each text with the configured task prefix. One vector per input, in order.</summary>
     public async Task<float[][]> EmbedAsync(IReadOnlyList<string> texts, CancellationToken cancellationToken = default)
     {
@@ -92,6 +128,12 @@ public sealed class LmStudioClient(HttpClient http, LlmConfig config)
     private sealed record ChatChoice(ChatDelta? Delta);
 
     private sealed record ChatDelta(string? Content);
+
+    private sealed record CompletionRequest(string Model, string Prompt, double Temperature, double TopP, int MaxTokens, bool Stream);
+
+    private sealed record CompletionChunk(CompletionChoice[]? Choices);
+
+    private sealed record CompletionChoice(string? Text);
 
     private sealed record EmbeddingRequest(string Model, string[] Input);
 

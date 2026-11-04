@@ -71,6 +71,17 @@ public sealed class EngineHost : IAsyncDisposable
         }
 
         Agent.Brain.Ticked += OnTicked;
+        Agent.Dreamer.Started += d => Log(EventKinds.Sleep, $"Dream started from {d.Seeds.Count} fragments");
+        Agent.Dreamer.Finished += d => Log(EventKinds.Dream, d.Text, new()
+        {
+            ["seeds"] = d.Seeds.Count,
+            ["minutes"] = (d.End - d.Start).TotalMinutes,
+            ["interrupted"] = d.Interrupted ? 1 : 0,
+            ["NE"] = d.Chemistry[(int)Substance.Norepinephrine],
+            ["5-HT"] = d.Chemistry[(int)Substance.Serotonin],
+            ["ACh"] = d.Chemistry[(int)Substance.Acetylcholine],
+        });
+        Agent.Dreamer.Failed += Report;
         Agent.Brain.Transition += t => Log(EventKinds.Sleep, $"{t.Kind} from {t.From}");
         _loop = Task.Run(() => LoopAsync(_stop.Token));
     }
