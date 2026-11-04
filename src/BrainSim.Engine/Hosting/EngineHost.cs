@@ -37,6 +37,9 @@ public sealed class EngineHost : IAsyncDisposable
     public string? JournalPath { get; private set; }
     public string CheckpointPath => Path.Combine(_dataDirectory, "checkpoint.json");
 
+    /// <summary>The conversation restored from the checkpoint, from sessions before this one.</summary>
+    public IReadOnlyList<ChatMessage> EarlierMessages { get; private set; } = [];
+
     /// <summary>A reply is streaming. Read from the UI thread, so it is only a hint.</summary>
     public bool IsGenerating => Agent.Brain.IsGenerating;
 
@@ -57,6 +60,7 @@ public sealed class EngineHost : IAsyncDisposable
         if (await AgentCheckpoint.LoadAsync(CheckpointPath) is { } checkpoint)
         {
             Agent.Restore(checkpoint);
+            EarlierMessages = [.. Agent.History];
 
             // A brain that ran ahead in simulated time would freeze in real mode, so keep it on its own clock.
             if (Agent.Brain.Now > DateTime.Now)
@@ -103,9 +107,22 @@ public sealed class EngineHost : IAsyncDisposable
         Log(EventKinds.Lab, $"W {from.Abbreviation()} to {to.Abbreviation()} set to {w:0.#####}");
     });
 
+    public void SetBaseline(Substance s, double level) => Post(a =>
+    {
+        a.Brain.Chemistry.SetResting(s, level);
+        Log(EventKinds.Lab, $"Baseline of {s.Abbreviation()} set to {level:0.00}");
+    });
+
+    public void SetGain(string signal, Substance s, double gain) => Post(a =>
+    {
+        a.Appraiser.SetGain(signal, s, gain);
+        Log(EventKinds.Lab, $"Gain of {signal} on {s.Abbreviation()} set to {gain:0.###}");
+    });
+
     public void ResetLab() => Post(a =>
     {
         a.Brain.Chemistry.ResetParameters();
+        a.Appraiser.ResetGains();
         Log(EventKinds.Lab, "Lab reset to config.yaml");
     });
 

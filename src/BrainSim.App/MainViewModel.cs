@@ -68,7 +68,9 @@ public sealed partial class MainViewModel : ObservableObject
         SelectedClockMode = ClockModes[0];
         SelectedWindow = Windows[1];
         SubstanceRows = [.. Substances.All.Select(s => new SubstanceRow(s, this))];
-        Interactions = [.. config.Interactions.Select(i => new InteractionRow(Substances.Parse(i.From), Substances.Parse(i.To), i.W, this))];
+        var w = config.Interactions.ToDictionary(i => (Substances.Parse(i.From), Substances.Parse(i.To)), i => i.W);
+        WCells = [.. Substances.All.SelectMany(from => Substances.All.Select(to => new WCell(from, to, w.GetValueOrDefault((from, to)), this)))];
+        Gains = [.. config.Appraisal.Gains.SelectMany(g => g.Value.Select(s => new GainRow(g.Key, Substances.Parse(s.Key), s.Value, this)))];
         Channels = [.. host.Agent.Brain.Modulation.Names.Select(n => new ChannelRow(n))];
 
         host.Appraised += (_, _, _) => _dispatcher.BeginInvoke(() => { _streaming = ""; RebuildChat(force: true); });
@@ -114,7 +116,10 @@ public sealed partial class MainViewModel : ObservableObject
 
     public ObservableCollection<ChatItem> Chat { get; } = [];
     public ObservableCollection<SubstanceRow> SubstanceRows { get; }
-    public ObservableCollection<InteractionRow> Interactions { get; }
+    /// <summary>W as a 10 by 10 grid, rows are the source, columns the target, in substance order.</summary>
+    public IReadOnlyList<WCell> WCells { get; }
+    public IReadOnlyList<string> SubstanceNames { get; } = Substances.Abbreviations;
+    public ObservableCollection<GainRow> Gains { get; }
     public ObservableCollection<ChannelRow> Channels { get; }
     public IReadOnlyList<Marker> Markers { get; private set; } = [];
 
@@ -262,6 +267,10 @@ public sealed partial class MainViewModel : ObservableObject
         RefreshStability();
     }
 
+    public void SetBaseline(Substance s, double level) => _host.SetBaseline(s, level);
+
+    public void SetGain(string signal, Substance s, double gain) => _host.SetGain(signal, s, gain);
+
     [RelayCommand]
     private void ResetLab()
     {
@@ -271,7 +280,12 @@ public sealed partial class MainViewModel : ObservableObject
             row.Reset();
         }
 
-        foreach (var row in Interactions)
+        foreach (var cell in WCells)
+        {
+            cell.Reset();
+        }
+
+        foreach (var row in Gains)
         {
             row.Reset();
         }
@@ -398,6 +412,16 @@ public sealed partial class MainViewModel : ObservableObject
         _chatEventCount = events.Count;
         _chatCursor = cursor;
         Chat.Clear();
+
+        // Messages from earlier sessions come from the checkpoint; they have no appraisal details.
+        if (!IsReplayFile)
+        {
+            foreach (var m in _host.EarlierMessages.TakeLast(40))
+            {
+                Chat.Add(new ChatItem(m.Role == "user" ? EventKinds.User : EventKinds.Agent, m.Content, "earlier session"));
+            }
+        }
+
         foreach (var e in events.Where(e => e.Tick <= cursor))
         {
             switch (e.Kind)
@@ -487,6 +511,7 @@ public sealed partial class SubstanceRow : ObservableObject
     [ObservableProperty] private bool _holding;
     [ObservableProperty] private string _holdLevel = "1.00";
     [ObservableProperty] private string _halfLife;
+    [ObservableProperty] private string _baseline = "1.00";
     [ObservableProperty] private string _error = "";
 
     private bool _resetting;
@@ -533,6 +558,20 @@ public sealed partial class SubstanceRow : ObservableObject
     }
 
     [RelayCommand]
+    private void ApplyBaseline()
+    {
+        if (MainViewModel.TryParse(Baseline, out var level) && level is >= 0.1 and <= 4)
+        {
+            Error = "";
+            _owner.SetBaseline(Substance, level);
+        }
+        else
+        {
+            Error = "Baseline must be between 0.1 and 4";
+        }
+    }
+
+    [RelayCommand]
     private void ApplyHalfLife()
     {
         if (MainViewModel.TryParse(HalfLife, out var t) && t >= 1)
@@ -552,35 +591,105 @@ public sealed partial class SubstanceRow : ObservableObject
         Holding = false; // the engine reset already released every hold
         _resetting = false;
         HalfLife = _configHalfLife.ToString("0", CultureInfo.InvariantCulture);
+        Baseline = "1.00";
         Error = "";
     }
 }
 
-/// <summary>One editable W entry from config.yaml.</summary>
-public sealed partial class InteractionRow(Substance from, Substance to, double w, MainViewModel owner) : ObservableObject
+/// <summary>One cell of the W heatmap: the effect of the row substance on the column substance, per tick.</summary>
+public sealed partial class WCell : ObservableObject
 {
-    public string Label => $"{from.Abbreviation()} to {to.Abbreviation()}";
+    private readonly MainViewModel _owner;
+    private readonly double _configValue;
+    private double _applied;
+    private bool _resetting;
 
-    [ObservableProperty] private string _w = w.ToString("0.#####", CultureInfo.InvariantCulture);
-    [ObservableProperty] private string _error = "";
-
-    [RelayCommand]
-    private void Apply()
+    public WCell(Substance from, Substance to, double w, MainViewModel owner)
     {
-        if (MainViewModel.TryParse(W, out var value) && Math.Abs(value) <= 0.1)
+        From = from;
+        To = to;
+        _owner = owner;
+        _configValue = w;
+        _applied = w;
+        _text = Format(w);
+    }
+
+    public Substance From { get; }
+    public Substance To { get; }
+    public string Tip => $"{From.Abbreviation()} on {To.Abbreviation()}. Empty means 0. Edit, then press Tab to apply.";
+
+    [ObservableProperty] private string _text;
+    [ObservableProperty] private bool _invalid;
+
+    /// <summary>Green for excitation, red for inhibition, stronger color for a larger effect.</summary>
+    public Brush Background => _applied == 0 ? Brushes.Transparent : Heat(_applied);
+
+    partial void OnTextChanged(string value)
+    {
+        if (_resetting)
         {
-            Error = "";
-            owner.SetInteraction(from, to, value);
+            return;
         }
-        else
+
+        var w = 0.0;
+        Invalid = value.Trim().Length > 0 && !(MainViewModel.TryParse(value, out w) && Math.Abs(w) <= 0.1);
+        if (!Invalid && w != _applied)
         {
-            Error = "W must be between -0.1 and 0.1";
+            _applied = w;
+            _owner.SetInteraction(From, To, w);
+            OnPropertyChanged(nameof(Background));
         }
     }
 
     public void Reset()
     {
-        W = w.ToString("0.#####", CultureInfo.InvariantCulture);
+        _resetting = true;
+        _applied = _configValue;
+        Text = Format(_configValue);
+        Invalid = false;
+        _resetting = false;
+        OnPropertyChanged(nameof(Background));
+    }
+
+    private static string Format(double w) => w == 0 ? "" : w.ToString("0.#####", CultureInfo.InvariantCulture);
+
+    private static SolidColorBrush Heat(double w)
+    {
+        var strength = Math.Clamp(Math.Abs(w) / 0.01, 0.15, 1.0);
+        var color = (Color)ColorConverter.ConvertFromString(w > 0 ? "#34D399" : "#EF4444");
+        var brush = new SolidColorBrush(Color.FromArgb((byte)(40 + 160 * strength), color.R, color.G, color.B));
+        brush.Freeze();
+        return brush;
+    }
+}
+
+/// <summary>One appraisal gain: how much of a substance one unit of a signal releases.</summary>
+public sealed partial class GainRow(string signal, Substance substance, double gain, MainViewModel owner) : ObservableObject
+{
+    public string Signal { get; } = signal;
+    public string SubstanceName => substance.Abbreviation();
+    public Brush Brush => Palette.Brush(substance);
+
+    [ObservableProperty] private string _gain = gain.ToString("0.###", CultureInfo.InvariantCulture);
+    [ObservableProperty] private string _error = "";
+
+    [RelayCommand]
+    private void Apply()
+    {
+        if (MainViewModel.TryParse(Gain, out var value) && Math.Abs(value) <= 10)
+        {
+            Error = "";
+            owner.SetGain(Signal, substance, value);
+        }
+        else
+        {
+            Error = "Gain must be between -10 and 10";
+        }
+    }
+
+    public void Reset()
+    {
+        Gain = gain.ToString("0.###", CultureInfo.InvariantCulture);
         Error = "";
     }
 }

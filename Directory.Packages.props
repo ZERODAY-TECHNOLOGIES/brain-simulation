@@ -10,6 +10,7 @@
     <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.4.2" />
     <PackageVersion Include="Dirkster.AvalonDock" Version="5.0.1" />
     <PackageVersion Include="Dirkster.AvalonDock.Themes.VS2013" Version="5.0.1" />
+    <PackageVersion Include="Dirkster.AvalonDock.Serializer.Xml" Version="5.0.1" />
     <PackageVersion Include="ScottPlot.WPF" Version="5.1.59" />
     <PackageVersion Include="xunit.v3" Version="4.0.2" />
   </ItemGroup>

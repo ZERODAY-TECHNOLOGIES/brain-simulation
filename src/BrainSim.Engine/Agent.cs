@@ -35,6 +35,7 @@ public sealed class Agent
     private readonly EngineConfig _config;
     private readonly LmStudioClient _llm;
     private readonly Func<DateTime> _clock;
+    private const int MaxHistory = 400;
     private readonly List<ChatMessage> _history = [];
 
     public Agent(EngineConfig config, LmStudioClient llm, IReadOnlyDictionary<string, LinearProbe> probes, Func<DateTime> clock)
@@ -94,6 +95,12 @@ public sealed class Agent
 
         // 10. Effort and expected reward. Step 11, the sleep decision, runs on every following idle tick.
         _history.Add(ChatMessage.Assistant(text.ToString()));
+
+        // ponytail: the conversation kept in the checkpoint is capped; ACT-R memory (Phase 7) is the long-term store.
+        if (_history.Count > MaxHistory)
+        {
+            _history.RemoveRange(0, _history.Count - MaxHistory);
+        }
         Brain.OnResponseFinished(tokens);
         Appraiser.LearnExpectedReward();
         return new AgentReply(text.ToString(), signals, sampling, tokens);

@@ -220,13 +220,21 @@ See [conventions.md](conventions.md#git).
   If a checkpoint is ahead of the wall clock (after a simulated run), the app keeps it on
   simulated time at x1 instead of freezing it until real time catches up.
 
-### D-27. Viewer v1 scope
+### D-27. Viewer v1 scope, completed
 - **Date:** 2026-11-04
 - **Decision:** The first viewer has the toolbar, chat, chemistry, receptors, effectors,
   clock, sleep and Lab panels, and the timeline with live, scrub-back and replay of saved
-  sessions. Deferred until needed: saving the panel layout between runs (AvalonDock 5
-  moved it to a separate package), editing baselines and appraisal gains in the Lab, the W
-  heatmap (the Lab edits W as a list), and showing earlier sessions' messages in the chat.
+  sessions. Items first deferred and then added the same day:
+  - the panel layout is saved on exit and restored on start (`layout.xml`, through
+    `Dirkster.AvalonDock.Serializer.Xml`);
+  - the Lab edits each substance's awake baseline and every appraisal gain;
+  - W is a 10 by 10 editable heatmap (rows are the source, columns the target);
+  - the chat shows the last 40 messages from earlier sessions, from the checkpoint.
+- **Finding:** a baseline moved by the Lab is mostly undone by tolerance within an hour or
+  two: rho follows the new long-term mean, so the effect fades. That is the spec's
+  receptor model working as homeostasis, and `LabTests` checks it.
+- **Ceiling:** the conversation kept in the checkpoint is capped at 400 messages until the
+  ACT-R memory takes over long-term storage.
 
 ## Open
 

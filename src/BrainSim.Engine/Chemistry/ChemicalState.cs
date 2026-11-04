@@ -37,9 +37,16 @@ public sealed class ChemicalState
         _min = config.Concentration.Min;
         _max = config.Concentration.Max;
         RestingBaseline = config.Concentration.Baseline;
+        Array.Fill(Resting, RestingBaseline);
         Array.Fill(C, RestingBaseline);
         Array.Fill(Baseline, RestingBaseline);
     }
+
+    /// <summary>
+    /// Resting baseline per substance, the level each one settles at while awake. 1.0 for all of them unless the Lab
+    /// moves one. Receptors keep measuring from <see cref="RestingBaseline"/>, so a moved baseline shows up as modulation.
+    /// </summary>
+    public double[] Resting { get; } = new double[N];
 
     /// <summary>Lab: a level to hold a substance at after every tick. NaN means not held.</summary>
     public double[] Hold { get; } = new double[N];
@@ -54,11 +61,15 @@ public sealed class ChemicalState
     /// <summary>Lab: change one W entry for the rest of the session.</summary>
     public void SetInteraction(Substance from, Substance to, double w) => _w[(int)to, (int)from] = w;
 
-    /// <summary>Lab: back to the half-lives and W from config.yaml, and nothing held.</summary>
+    /// <summary>Lab: change where a substance settles while awake.</summary>
+    public void SetResting(Substance s, double level) => Resting[(int)s] = level;
+
+    /// <summary>Lab: back to the half-lives, W and baselines from config.yaml, and nothing held.</summary>
     public void ResetParameters()
     {
         LoadParameters();
         Array.Fill(Hold, double.NaN);
+        Array.Fill(Resting, RestingBaseline);
     }
 
     /// <summary>Largest real part among the eigenvalues of -K + W. Negative means stable.</summary>

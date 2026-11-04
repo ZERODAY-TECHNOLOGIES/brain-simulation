@@ -29,9 +29,10 @@ public partial class App : Application
             window.Closing += (_, _) =>
             {
                 viewModel.Stop();
+                window.SaveLayout();
 
-                // The engine loop never needs the UI thread, so waiting here cannot deadlock.
-                _host.DisposeAsync().AsTask().GetAwaiter().GetResult();
+                // Dispose on the thread pool: awaiting it here would resume on the UI thread we are blocking.
+                Task.Run(() => _host.DisposeAsync().AsTask()).GetAwaiter().GetResult();
             };
             MainWindow = window;
             window.Show();

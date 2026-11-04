@@ -97,7 +97,7 @@ public sealed class Brain
 
     /// <summary>Net sleep pressure P = (ADO - b) - C(phi). Measured from baseline, see D-21.</summary>
     public double SleepPressure =>
-        Chemistry.C[Ado] - Chemistry.RestingBaseline - CircadianClock.Alertness(Clock.Phase(Now));
+        Chemistry.C[Ado] - Chemistry.Resting[Ado] - CircadianClock.Alertness(Clock.Phase(Now));
 
     /// <summary>Advances one tick that happens at <paramref name="now"/>. <paramref name="token"/> is set for generated tokens.</summary>
     public void Tick(DateTime now, string? token = null)
@@ -164,7 +164,7 @@ public sealed class Brain
     private void ApplyTargets()
     {
         var b = Chemistry.Baseline;
-        Array.Fill(b, Chemistry.RestingBaseline);
+        Array.Copy(Chemistry.Resting, b, b.Length);
         foreach (var (index, value) in _phaseTargets[(int)Phase])
         {
             b[index] = value;

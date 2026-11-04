@@ -67,7 +67,8 @@ As of 2026-11-04:
 
 - **Phase 4:** done. The WPF viewer: chat with live token streaming, the chemistry,
   receptors, effectors, clock, sleep and Lab panels, the timeline with scrub-back, and
-  replay of saved sessions. Responsive from 1024 x 640 up (D-27 lists what was left out).
+  replay of saved sessions, the Lab with baselines, gains and a W heatmap, and a saved panel
+  layout. Responsive from 1024 x 640 up (D-27).
 
 Run the app with `dotnet run --project src/BrainSim.App` (LM Studio on, both models loaded).
 Run the tests with `dotnet test --solution BrainSim.slnx`. To also run the scenario tests

@@ -21,7 +21,7 @@ public sealed class Appraiser
 {
     private readonly AppraisalConfig _config;
     private readonly IReadOnlyDictionary<string, LinearProbe> _probes;
-    private readonly (string Signal, Substance Substance, double Gain)[] _gains;
+    private readonly List<(string Signal, Substance Substance, double Gain)> _gains = [];
     private readonly Queue<float[]> _recent = new();
     private readonly Queue<double> _novelty = new();
     private double? _pendingReward;
@@ -30,7 +30,31 @@ public sealed class Appraiser
     {
         _config = config;
         _probes = probes;
-        _gains = [.. config.Gains.SelectMany(g => g.Value.Select(s => (g.Key, Substances.Parse(s.Key), s.Value)))];
+        ResetGains();
+    }
+
+    /// <summary>Impulse gains: how much of each substance one unit of each signal releases.</summary>
+    public IReadOnlyList<(string Signal, Substance Substance, double Gain)> Gains => _gains;
+
+    /// <summary>Lab: change one gain for the rest of the session. A new signal and substance pair is added.</summary>
+    public void SetGain(string signal, Substance substance, double gain)
+    {
+        var i = _gains.FindIndex(g => g.Signal == signal && g.Substance == substance);
+        if (i >= 0)
+        {
+            _gains[i] = (signal, substance, gain);
+        }
+        else
+        {
+            _gains.Add((signal, substance, gain));
+        }
+    }
+
+    /// <summary>Lab: back to the gains in config.yaml.</summary>
+    public void ResetGains()
+    {
+        _gains.Clear();
+        _gains.AddRange(_config.Gains.SelectMany(g => g.Value.Select(s => (g.Key, Substances.Parse(s.Key), s.Value))));
     }
 
     /// <summary>Expected reward V, learned slowly.</summary>

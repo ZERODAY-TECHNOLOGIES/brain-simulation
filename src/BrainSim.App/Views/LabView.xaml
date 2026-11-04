@@ -1,13 +1,22 @@
 <UserControl x:Class="BrainSim.App.Views.LabView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <UserControl.Resources>
+    <Style x:Key="Cell" TargetType="TextBlock">
+      <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="HorizontalAlignment" Value="Center" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+  </UserControl.Resources>
+
   <ScrollViewer Background="{StaticResource SurfaceBrush}" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" IsEnabled="{Binding CanEdit}">
     <StackPanel Margin="12,6">
-      <StackPanel Orientation="Horizontal">
-        <TextBlock Text="Change the chemistry while the agent runs. Every action goes to the events journal." Style="{StaticResource Muted}" VerticalAlignment="Center" />
-        <Button Content="Reset to config" Margin="16,0,0,0" Padding="12,2" Command="{Binding ResetLabCommand}" />
-      </StackPanel>
-      <TextBlock Text="{Binding StabilityText}" Margin="0,6,0,0" FontFamily="{StaticResource NumberFont}">
+      <WrapPanel>
+        <TextBlock Text="Change the chemistry while the agent runs. Every action goes to the events journal." Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,16,4" />
+        <Button Content="Reset to config" Padding="12,2" Command="{Binding ResetLabCommand}" Margin="0,0,0,4" />
+      </WrapPanel>
+      <TextBlock Text="{Binding StabilityText}" Margin="0,4,0,0" FontFamily="{StaticResource NumberFont}" TextWrapping="Wrap">
         <TextBlock.Style>
           <Style TargetType="TextBlock">
             <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
@@ -20,6 +29,7 @@
         </TextBlock.Style>
       </TextBlock>
 
+      <!-- Substances -->
       <TextBlock Text="Substances" Style="{StaticResource SectionTitle}" Margin="0,12,0,4" />
       <Grid Margin="0,0,0,4">
         <Grid.ColumnDefinitions>
@@ -27,13 +37,15 @@
           <ColumnDefinition Width="56" />
           <ColumnDefinition Width="170" />
           <ColumnDefinition Width="190" />
+          <ColumnDefinition Width="160" />
           <ColumnDefinition Width="180" />
           <ColumnDefinition />
         </Grid.ColumnDefinitions>
         <TextBlock Grid.Column="1" Text="C" Style="{StaticResource Muted}" />
         <TextBlock Grid.Column="2" Text="Inject amount" Style="{StaticResource Muted}" />
         <TextBlock Grid.Column="3" Text="Hold at level" Style="{StaticResource Muted}" />
-        <TextBlock Grid.Column="4" Text="Half-life (ticks)" Style="{StaticResource Muted}" />
+        <TextBlock Grid.Column="4" Text="Baseline (awake)" Style="{StaticResource Muted}" />
+        <TextBlock Grid.Column="5" Text="Half-life (ticks)" Style="{StaticResource Muted}" />
       </Grid>
       <ItemsControl ItemsSource="{Binding SubstanceRows}">
         <ItemsControl.ItemTemplate>
@@ -44,6 +56,7 @@
                 <ColumnDefinition Width="56" />
                 <ColumnDefinition Width="170" />
                 <ColumnDefinition Width="190" />
+                <ColumnDefinition Width="160" />
                 <ColumnDefinition Width="180" />
                 <ColumnDefinition />
               </Grid.ColumnDefinitions>
@@ -59,22 +72,90 @@
                 <Button Content="Set" Margin="6,0,0,0" Padding="10,2" Command="{Binding ApplyHoldCommand}" />
               </StackPanel>
               <StackPanel Grid.Column="4" Orientation="Horizontal">
+                <TextBox Text="{Binding Baseline}" Width="70" ToolTip="Where the substance settles while awake. Sleep phases still set their own targets." />
+                <Button Content="Set" Margin="6,0,0,0" Padding="10,2" Command="{Binding ApplyBaselineCommand}" />
+              </StackPanel>
+              <StackPanel Grid.Column="5" Orientation="Horizontal">
                 <TextBox Text="{Binding HalfLife}" Width="90" />
                 <Button Content="Set" Margin="6,0,0,0" Padding="10,2" Command="{Binding ApplyHalfLifeCommand}" />
               </StackPanel>
-              <TextBlock Grid.Column="5" Text="{Binding Error}" Foreground="{StaticResource WarnBrush}" VerticalAlignment="Center" Margin="8,0,0,0" />
+              <TextBlock Grid.Column="6" Text="{Binding Error}" Foreground="{StaticResource WarnBrush}" VerticalAlignment="Center" Margin="8,0,0,0" />
             </Grid>
           </DataTemplate>
         </ItemsControl.ItemTemplate>
       </ItemsControl>
 
-      <TextBlock Text="Interactions (W, per tick)" Style="{StaticResource SectionTitle}" Margin="0,14,0,4" />
-      <ItemsControl ItemsSource="{Binding Interactions}">
+      <!-- W heatmap -->
+      <TextBlock Text="Interactions (W, per tick)" Style="{StaticResource SectionTitle}" Margin="0,16,0,2" />
+      <TextBlock Text="Rows are the source, columns the target. Green excites, red inhibits. Edit a cell, then press Tab to apply." Style="{StaticResource Muted}" Margin="0,0,0,6" />
+      <Grid HorizontalAlignment="Left">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="48" />
+          <ColumnDefinition />
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+          <RowDefinition Height="22" />
+          <RowDefinition />
+        </Grid.RowDefinitions>
+        <ItemsControl Grid.Column="1" ItemsSource="{Binding SubstanceNames}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <UniformGrid Rows="1" />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <TextBlock Text="{Binding}" Style="{StaticResource Cell}" Width="64" />
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <ItemsControl Grid.Row="1" ItemsSource="{Binding SubstanceNames}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <TextBlock Text="{Binding}" Style="{StaticResource Cell}" HorizontalAlignment="Left" Height="30" />
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <ItemsControl Grid.Row="1" Grid.Column="1" ItemsSource="{Binding WCells}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <UniformGrid Columns="10" />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <Border Background="{Binding Background}" Width="62" Height="28" Margin="1" CornerRadius="3">
+                <Border.Style>
+                  <Style TargetType="Border">
+                    <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}" />
+                    <Setter Property="BorderThickness" Value="1" />
+                    <Style.Triggers>
+                      <DataTrigger Binding="{Binding Invalid}" Value="True">
+                        <Setter Property="BorderBrush" Value="{StaticResource WarnBrush}" />
+                        <Setter Property="BorderThickness" Value="2" />
+                      </DataTrigger>
+                    </Style.Triggers>
+                  </Style>
+                </Border.Style>
+                <TextBox Text="{Binding Text, UpdateSourceTrigger=LostFocus}" ToolTip="{Binding Tip}"
+                         Background="Transparent" BorderThickness="0" MinWidth="0" MinHeight="0" Padding="2,0"
+                         FontFamily="{StaticResource NumberFont}" FontSize="11"
+                         HorizontalContentAlignment="Center" VerticalContentAlignment="Center" />
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </Grid>
+
+      <!-- Appraisal gains -->
+      <TextBlock Text="Appraisal gains (impulse per unit of signal)" Style="{StaticResource SectionTitle}" Margin="0,16,0,4" />
+      <ItemsControl ItemsSource="{Binding Gains}">
         <ItemsControl.ItemTemplate>
           <DataTemplate>
             <StackPanel Orientation="Horizontal" Margin="0,2">
-              <TextBlock Text="{Binding Label}" Width="130" VerticalAlignment="Center" Foreground="{StaticResource TextBrush}" />
-              <TextBox Text="{Binding W}" Width="100" />
+              <TextBlock Text="{Binding Signal}" Width="130" VerticalAlignment="Center" Foreground="{StaticResource TextBrush}" />
+              <TextBlock Text="{Binding SubstanceName}" Foreground="{Binding Brush}" FontWeight="SemiBold" Width="56" VerticalAlignment="Center" />
+              <TextBox Text="{Binding Gain}" Width="80" />
               <Button Content="Set" Margin="6,0,0,0" Padding="10,2" Command="{Binding ApplyCommand}" />
               <TextBlock Text="{Binding Error}" Foreground="{StaticResource WarnBrush}" VerticalAlignment="Center" Margin="8,0,0,0" />
             </StackPanel>
