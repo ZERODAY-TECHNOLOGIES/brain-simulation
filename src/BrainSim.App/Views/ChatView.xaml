@@ -1,6 +1,7 @@
 <UserControl x:Class="BrainSim.App.Views.ChatView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:app="clr-namespace:BrainSim.App">
   <Grid Background="{StaticResource SurfaceBrush}">
     <Grid.RowDefinitions>
       <RowDefinition />
@@ -13,7 +14,7 @@
           <DataTemplate>
             <Border x:Name="Bubble" CornerRadius="6" Padding="10,8" Margin="0,0,40,8" Background="#18202B">
               <StackPanel>
-                <TextBlock Text="{Binding Text}" TextWrapping="Wrap" Foreground="{StaticResource TextBrush}" />
+                <TextBlock app:MarkdownText.Markdown="{Binding Text}" TextWrapping="Wrap" Foreground="{StaticResource TextBrush}" />
                 <TextBlock Text="{Binding Detail}" Margin="0,4,0,0" FontSize="11" TextWrapping="Wrap"
                            FontFamily="{StaticResource NumberFont}" Foreground="{StaticResource MutedBrush}" />
               </StackPanel>

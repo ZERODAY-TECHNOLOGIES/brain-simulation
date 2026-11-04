@@ -296,6 +296,15 @@ See [conventions.md](conventions.md#git).
   walked by the water, I felt calm, now I want to see if there was a reason why the ducks
   were watching me").
 
+### D-32. Markdown rendered by a small parser into TextBlock inlines
+- **Date:** 2026-11-04
+- **Decision:** chat replies and dreams render markdown. `BrainSim.Engine.Text.Markdown`
+  parses what small models write (headings, bullet and numbered lists, quotes, code fences,
+  rules, table rows, bold, italic, inline code, links) into blocks and spans, and
+  `MarkdownText.Markdown` turns them into TextBlock inlines. No dependency, no nested
+  scroll viewers in chat bubbles, and a reply re-renders cheaply on every streamed token.
+  Unclosed marks stay as plain text until they close.
+
 ## Open
 
 No open questions right now.
