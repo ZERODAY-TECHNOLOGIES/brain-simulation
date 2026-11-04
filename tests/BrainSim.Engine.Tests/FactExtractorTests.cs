@@ -25,6 +25,15 @@ public class FactExtractorTests
         Assert.Equal(5, FactExtractor.Parse(output, Config.Memory).Count);
     }
 
+    /// <summary>The extractor input is labeled by speaker, and the model sometimes echoes the label (seen live).</summary>
+    [Fact]
+    public void Parse_drops_an_echoed_speaker_label()
+    {
+        var facts = FactExtractor.Parse("Assistant: green is the user's favorite color.\n- User: The user lives in Cluj.\nassistant:", Config.Memory);
+
+        Assert.Equal(["green is the user's favorite color.", "The user lives in Cluj."], facts);
+    }
+
     [Fact]
     public void Empty_output_gives_no_facts()
     {

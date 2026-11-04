@@ -200,14 +200,13 @@ public sealed class Agent
 
     /// <summary>
     /// The turn becomes an episode, tagged with the stress and alertness it was lived in (dreams draw on the tag),
-    /// and its facts are extracted in the background. The extractor sees who said what, and only the start of the
-    /// reply: qwen3.5-0.8b otherwise lists facts from a long reply and drops the user's own (extraction_reply_chars).
+    /// and its facts are extracted in the background.
     /// </summary>
     private void Encode(string message, string reply, float[]? embedding)
     {
         var encoding = MemoryModulation.From(Brain.Modulation);
         var episode = Memory.AddEpisode(message + "\n" + reply, embedding, Brain.Chemistry.C, encoding, Brain.Now);
-        var exchange = $"User: {message}\nAssistant: {reply[..Math.Min(reply.Length, _config.Memory.ExtractionReplyChars)]}";
+        var exchange = FactExtractor.Exchange(message, reply, _config.Memory);
         Extraction = Task.Run(() => ExtractAsync(episode, exchange, encoding));
     }
 
