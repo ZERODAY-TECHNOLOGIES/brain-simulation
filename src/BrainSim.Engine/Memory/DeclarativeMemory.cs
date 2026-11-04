@@ -33,6 +33,17 @@ public sealed class DeclarativeMemory(MemoryConfig config, int seed = 11)
         }
     }
 
+    /// <summary>Replaces the memory with chunks read from memory.bin; new chunks continue after the highest id.</summary>
+    public void Load(IEnumerable<Chunk> chunks)
+    {
+        lock (_gate)
+        {
+            _chunks.Clear();
+            _chunks.AddRange(chunks);
+            _nextId = _chunks.Count > 0 ? _chunks.Max(c => c.Id) : 0;
+        }
+    }
+
     public double EncodingWeight(MemoryModulation m) => Math.Clamp(1 + config.Gain * m.Encoding, 0.2, 3);
 
     public double NoiseScale(MemoryModulation m) => config.Noise * Math.Clamp(1 + config.Gain * m.Noise, 0.3, 3);
