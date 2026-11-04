@@ -50,4 +50,13 @@ Each phase ends with something you can run and see.
 
 ## Status
 
-Planning. No code yet. Open questions are listed at the end of [decisions.md](decisions.md).
+As of 2026-11-04:
+- **Phase 0:** LM Studio spike done (results in [decisions.md](decisions.md#lm-studio-spike-results-2026-11-04)).
+  Helix Toolkit spike not started.
+- **Phase 1:** done. Chemistry, receptors, modulation channels, config and the Parquet tick
+  journal, with tests for T1, T6, baseline neutrality and stability. The spec's W was
+  unstable and had to be recalibrated (D-20).
+
+Run the tests with `dotnet test --solution BrainSim.slnx`.
+
+Open questions are listed at the end of [decisions.md](decisions.md).
