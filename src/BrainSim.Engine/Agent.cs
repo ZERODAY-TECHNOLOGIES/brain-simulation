@@ -96,45 +96,67 @@ public sealed class Agent
             _history.Add(ChatMessage.System($"You were dreaming when this message woke you, and you still remember the dream: {dream}"));
         }
 
-        // 2 to 4. Appraise the message and schedule the impulses. Familiar messages are less surprising, and memory
-        // recalls what the message cues. Without an embedding there is nothing to appraise or recall with.
-        float[]? embedding = null;
-        try
-        {
-            embedding = (await _llm.EmbedAsync([message], cancellationToken))[0];
-        }
-        catch (HttpRequestException)
-        {
-            // The embedding model is gone: answer anyway, with a neutral appraisal and no memory this turn.
-        }
-
-        var modulation = MemoryModulation.From(Brain.Modulation);
-        var familiarity = 0.0;
-        IReadOnlyList<Recall> recalled = [];
-        AppraisalSignals signals;
-        if (embedding is not null)
-        {
-            familiarity = Memory.Familiarity(embedding, modulation, Brain.Now);
-            signals = Appraiser.Appraise(embedding, hasPreviousResponse: _history.Any(m => m.Role == "assistant"));
-            signals = signals with { Surprise = signals.Surprise * (1 - _config.Memory.FamiliarityDamping * familiarity) };
-            recalled = Memory.RecallFacts(embedding, modulation, Brain.Now);
-        }
-        else
-        {
-            signals = new AppraisalSignals(0, null, 0, 0, 0, Appraiser.ExpectedReward);
-        }
-
-        Appraiser.Release(signals, Brain.Chemistry);
-        IReadOnlyList<string> remembered = [.. recalled.Select(r => r.Chunk.Text)];
+        // 2 to 4. Appraise the message, recall what it cues, and schedule the impulses.
+        var (signals, remembered, familiarity, embedding) = await AppraiseAsync(message, cancellationToken);
 
         // 5. Reduced mode: sampling is fixed from the chemistry at the start of the response.
         var sampling = Sampling.Compute(Brain.Chemistry.C, _config.Sampling);
         onAppraised?.Invoke(signals, sampling, remembered);
         _history.Add(ChatMessage.User(message));
 
-        // One system message, first: chat templates like Qwen's reject a system message anywhere else (D-34).
-        // Recalled facts ride along with this request only; they never enter the history, so they do not pile up.
-        // System notes in the history (a dream broken off by this message) are folded in after them.
+        // 6 to 8. One tick per streamed token.
+        var (reply, tokens) = await StreamReplyAsync(BuildRequest(remembered), sampling, onToken, cancellationToken);
+
+        // 10. Effort and expected reward. Step 11, the sleep decision, runs on every following idle tick.
+        _history.Add(ChatMessage.Assistant(reply));
+
+        // ponytail: the conversation kept in the checkpoint is capped; ACT-R memory (Phase 7) is the long-term store.
+        if (_history.Count > MaxHistory)
+        {
+            _history.RemoveRange(0, _history.Count - MaxHistory);
+        }
+
+        Brain.OnResponseFinished(tokens);
+        Appraiser.LearnExpectedReward();
+        Encode(message, reply, embedding);
+        return new AgentReply(reply, signals, sampling, tokens, remembered, familiarity);
+    }
+
+    /// <summary>
+    /// Steps 2 to 4. Familiar messages are less surprising, and memory recalls what the message cues. Without an
+    /// embedding (the embedding model is gone) the reply still goes ahead, with a neutral appraisal and no memory.
+    /// </summary>
+    private async Task<(AppraisalSignals Signals, IReadOnlyList<string> Remembered, double Familiarity, float[]? Embedding)> AppraiseAsync(
+        string message, CancellationToken cancellationToken)
+    {
+        float[] embedding;
+        try
+        {
+            embedding = (await _llm.EmbedAsync([message], cancellationToken))[0];
+        }
+        catch (HttpRequestException)
+        {
+            var neutral = new AppraisalSignals(0, null, 0, 0, 0, Appraiser.ExpectedReward);
+            Appraiser.Release(neutral, Brain.Chemistry);
+            return (neutral, [], 0, null);
+        }
+
+        var modulation = MemoryModulation.From(Brain.Modulation);
+        var familiarity = Memory.Familiarity(embedding, modulation, Brain.Now);
+        var signals = Appraiser.Appraise(embedding, hasPreviousResponse: _history.Any(m => m.Role == "assistant"));
+        signals = signals with { Surprise = signals.Surprise * (1 - _config.Memory.FamiliarityDamping * familiarity) };
+        IReadOnlyList<string> remembered = [.. Memory.RecallFacts(embedding, modulation, Brain.Now).Select(r => r.Chunk.Text)];
+        Appraiser.Release(signals, Brain.Chemistry);
+        return (signals, remembered, familiarity, embedding);
+    }
+
+    /// <summary>
+    /// One system message, first: chat templates like Qwen's reject a system message anywhere else (D-34).
+    /// Recalled facts ride along with this request only; they never enter the history, so they do not pile up.
+    /// System notes in the history (a dream broken off by this message) are folded in after them.
+    /// </summary>
+    private List<ChatMessage> BuildRequest(IReadOnlyList<string> remembered)
+    {
         var window = _history.TakeLast(_config.Llm.HistoryMessages).ToList();
         var system = new StringBuilder(_config.Llm.SystemPrompt);
         if (remembered.Count > 0)
@@ -147,9 +169,13 @@ public sealed class Agent
             system.Append("\n\n").Append(note.Content);
         }
 
-        List<ChatMessage> request = [ChatMessage.System(system.ToString()), .. window.Where(m => m.Role != "system")];
+        return [ChatMessage.System(system.ToString()), .. window.Where(m => m.Role != "system")];
+    }
 
-        // 6 to 8. One tick per streamed token.
+    /// <summary>Steps 6 to 8: one brain tick per streamed token.</summary>
+    private async Task<(string Text, int Tokens)> StreamReplyAsync(
+        List<ChatMessage> request, SamplingParameters sampling, Action<string>? onToken, CancellationToken cancellationToken)
+    {
         var text = new StringBuilder();
         var tokens = 0;
         Brain.IsGenerating = true;
@@ -169,28 +195,20 @@ public sealed class Agent
             Brain.IsGenerating = false;
         }
 
-        // 10. Effort and expected reward. Step 11, the sleep decision, runs on every following idle tick.
-        _history.Add(ChatMessage.Assistant(text.ToString()));
+        return (text.ToString(), tokens);
+    }
 
-        // ponytail: the conversation kept in the checkpoint is capped; ACT-R memory (Phase 7) is the long-term store.
-        if (_history.Count > MaxHistory)
-        {
-            _history.RemoveRange(0, _history.Count - MaxHistory);
-        }
-        Brain.OnResponseFinished(tokens);
-        Appraiser.LearnExpectedReward();
-
-        // The turn becomes an episode, tagged with the stress and alertness it was lived in (dreams draw on the tag),
-        // and its facts are extracted in the background.
+    /// <summary>
+    /// The turn becomes an episode, tagged with the stress and alertness it was lived in (dreams draw on the tag),
+    /// and its facts are extracted in the background. The extractor sees who said what, and only the start of the
+    /// reply: qwen3.5-0.8b otherwise lists facts from a long reply and drops the user's own (extraction_reply_chars).
+    /// </summary>
+    private void Encode(string message, string reply, float[]? embedding)
+    {
         var encoding = MemoryModulation.From(Brain.Modulation);
-        var reply = text.ToString();
         var episode = Memory.AddEpisode(message + "\n" + reply, embedding, Brain.Chemistry.C, encoding, Brain.Now);
-
-        // The extractor sees who said what, and only the start of the reply: qwen3.5-0.8b otherwise lists facts from a
-        // long reply and drops the user's own (extraction_reply_chars).
         var exchange = $"User: {message}\nAssistant: {reply[..Math.Min(reply.Length, _config.Memory.ExtractionReplyChars)]}";
         Extraction = Task.Run(() => ExtractAsync(episode, exchange, encoding));
-        return new AgentReply(reply, signals, sampling, tokens, remembered, familiarity);
     }
 
     private async Task ExtractAsync(Chunk episode, string exchange, MemoryModulation encoding)

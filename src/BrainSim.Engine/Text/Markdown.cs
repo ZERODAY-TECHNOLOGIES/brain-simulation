@@ -67,39 +67,9 @@ public static partial class Markdown
                 continue;
             }
 
-            var indent = (line.Length - trimmed.Length) / 2;
-            Match m;
-            if ((m = HeadingPattern().Match(trimmed)).Success)
+            if (Line(trimmed, (line.Length - trimmed.Length) / 2) is { } block)
             {
-                blocks.Add(new MarkdownBlock(BlockKind.Heading, m.Groups[1].Length, "", Inline(m.Groups[2].Value)));
-            }
-            else if (RulePattern().IsMatch(trimmed))
-            {
-                blocks.Add(new MarkdownBlock(BlockKind.Rule, 0, "", []));
-            }
-            else if ((m = BulletPattern().Match(trimmed)).Success)
-            {
-                blocks.Add(new MarkdownBlock(BlockKind.Bullet, indent, "", Inline(m.Groups[1].Value)));
-            }
-            else if ((m = NumberedPattern().Match(trimmed)).Success)
-            {
-                blocks.Add(new MarkdownBlock(BlockKind.Numbered, indent, m.Groups[1].Value + ".", Inline(m.Groups[2].Value)));
-            }
-            else if (trimmed.StartsWith('>'))
-            {
-                blocks.Add(new MarkdownBlock(BlockKind.Quote, 0, "", Inline(trimmed.TrimStart('>', ' '))));
-            }
-            else if (trimmed.StartsWith('|'))
-            {
-                if (!TableSeparatorPattern().IsMatch(trimmed))
-                {
-                    var cells = trimmed.Trim('|').Split('|').Select(c => c.Trim());
-                    blocks.Add(new MarkdownBlock(BlockKind.TableRow, 0, "", Inline(string.Join("   |   ", cells))));
-                }
-            }
-            else
-            {
-                blocks.Add(new MarkdownBlock(BlockKind.Paragraph, 0, "", Inline(trimmed)));
+                blocks.Add(block);
             }
         }
 
@@ -109,6 +79,44 @@ public static partial class Markdown
         }
 
         return blocks;
+    }
+
+    /// <summary>One non-blank line outside a code fence, as a block. A table's separator row gives none.</summary>
+    private static MarkdownBlock? Line(string trimmed, int indent)
+    {
+        Match m;
+        if ((m = HeadingPattern().Match(trimmed)).Success)
+        {
+            return new MarkdownBlock(BlockKind.Heading, m.Groups[1].Length, "", Inline(m.Groups[2].Value));
+        }
+
+        if (RulePattern().IsMatch(trimmed))
+        {
+            return new MarkdownBlock(BlockKind.Rule, 0, "", []);
+        }
+
+        if ((m = BulletPattern().Match(trimmed)).Success)
+        {
+            return new MarkdownBlock(BlockKind.Bullet, indent, "", Inline(m.Groups[1].Value));
+        }
+
+        if ((m = NumberedPattern().Match(trimmed)).Success)
+        {
+            return new MarkdownBlock(BlockKind.Numbered, indent, m.Groups[1].Value + ".", Inline(m.Groups[2].Value));
+        }
+
+        if (trimmed.StartsWith('>'))
+        {
+            return new MarkdownBlock(BlockKind.Quote, 0, "", Inline(trimmed.TrimStart('>', ' ')));
+        }
+
+        if (trimmed.StartsWith('|'))
+        {
+            var cells = trimmed.Trim('|').Split('|').Select(c => c.Trim());
+            return TableSeparatorPattern().IsMatch(trimmed) ? null : new MarkdownBlock(BlockKind.TableRow, 0, "", Inline(string.Join("   |   ", cells)));
+        }
+
+        return new MarkdownBlock(BlockKind.Paragraph, 0, "", Inline(trimmed));
     }
 
     public static List<MarkdownSpan> Inline(string text)
