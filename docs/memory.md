@@ -50,8 +50,9 @@ night consolidates and forgets like a real one.
 - **Base level:** `B = ln( sum_j w_j * max(t - t_j, 0.05)^(-d) )`, `d = 0.5`.
   Fresh and often-presented chunks are strong; old ones fade but never reach zero.
 - **Spreading** from the current message: `S = W * max(0, (cos - c0) / (1 - c0))`, where `cos`
-  is the cosine similarity of the message and chunk embeddings, `W = 2.0`, `c0 = 0.5`
-  (unrelated nomic embeddings sit around 0.4 to 0.5).
+  is the cosine similarity of the message and chunk embeddings, `W = 2.0`, `c0 = 0.7`.
+  The embeddings carry nomic's `classification: ` prefix (the probes need it), which lifts
+  every cosine: unrelated texts measured 0.54 to 0.68, related ones 0.77 to 0.87 (D-33).
 - **Noise:** logistic with scale `s`, drawn per chunk per recall, from a seeded generator.
 - **Activation:** `A = B + S + noise`. A chunk can be recalled when `A > tau`.
 
@@ -78,7 +79,8 @@ learned under stress to be lost, and E3 already says chronic stress freezes plas
 1. The episode is stored at once. Its embedding is the user message's embedding, which the
    appraisal already computed. Its presentation weight comes from `memory_encoding` now.
 2. Fact extraction runs in the background so the chat does not wait. LM Studio gets the
-   episode and a short instruction at temperature 0.2, at most 150 tokens:
+   exchange labeled by speaker, `User: <message>` and `Assistant: <the first 200 characters
+   of the reply>`, and a short instruction at temperature 0.2, at most 150 tokens:
    "List the lasting facts in this exchange, one per line. Facts about the user or the
    world only. If there are none, write nothing."
 3. Each line becomes a candidate: list marks and numbering stripped, kept if it is 3 to 200
@@ -90,12 +92,16 @@ learned under stress to be lost, and E3 already says chronic stress freezes plas
 
 ### Recall, on every user message
 
-1. Activation is computed for all facts that are not archived, against the message embedding.
-2. Up to `k = 4` facts above `tau`, highest first, go into the request as one system
-   message: "Things you remember:" followed by the facts. It is not added to the history,
-   so recalled facts do not pile up in the context.
+1. Activation is computed for the facts that are not archived and that the message points
+   at (`S > 0`). Retrieval is cue driven: without a cue, a fresh fact passes on base level
+   alone, is recalled for every message, and each recall strengthens it again.
+2. Up to `k = 4` facts above `tau`, highest first, go into the request as a "Things you
+   remember:" block inside the one leading system message (chat templates like Qwen's
+   reject a system message anywhere else, D-34). It is not added to the history, so recalled
+   facts do not pile up in the context.
 3. Each recalled fact gets a presentation: recall strengthens it.
-4. **Familiarity:** `f = clip((A_max - tau) / 2, 0, 1)` over facts and episodes, and the
+4. **Familiarity:** `f = clip((A_max - tau) / 2, 0, 1)` over the facts and episodes the
+   message points at, and the
    surprise from appraisal becomes `S * (1 - 0.5 f)`.
 
 ### Sleep replay, in NREM

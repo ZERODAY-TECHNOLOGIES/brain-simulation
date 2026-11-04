@@ -46,7 +46,7 @@ Each phase ends with something you can run and see.
 | 4. Viewer v1 | WPF shell, docking, chat, chemistry charts, timeline, replay from journal, Lab panel | You can chat, watch every substance live, scrub back through a session |
 | 5. 3D brain | Anatomical meshes, holographic shading, nuclei glow, release particles along pathways | Releasing DA by hand visibly flows from VTA to striatum and cortex |
 | 6. Dreams | REM generation through LM Studio, dream journal, emotional detensioning | T9 passes (the parts that apply in reduced mode) |
-| 7. Memory (ACT-R) | Memory module wired through E4 | Defined in its own spec, next stage of the project |
+| 7. Memory (ACT-R) | Memory module wired through E4 | T7 passes: a fact told with DA high is recalled after it leaves the context, not with DA low or CORT high |
 | 8. Drugs | Agonists, antagonists, reuptake inhibitors, releasers mapped onto occ, rho, k, g | Only after the validation tests pass |
 
 ## Status
@@ -79,6 +79,12 @@ As of 2026-11-04:
   as raw completions at REM temperature, revealed at one token per 2 seconds of REM, with
   emotional detensioning, a dream journal panel, the hippocampus lit while dreaming, and the
   dream kept in context after a forced wake from REM. T9 passes in part (D-30).
+
+- **Phase 7:** done. ACT-R declarative memory driven by E4: every turn is an episode, facts
+  are extracted from it in the background, recalled into the prompt when a message cues
+  them, strengthened by recall and by NREM replay, and saved in `memory.bin`. Familiarity
+  damps surprise; dreams draw on the episodes. A Memory panel, `M n` in the chat and a
+  hippocampus pulse show it. T7 passes with fakes and against the real models (D-33, D-34).
 
 Run the app with `dotnet run --project src/BrainSim.App` (LM Studio on, both models loaded).
 Run the tests with `dotnet test --solution BrainSim.slnx`. To also run the scenario tests

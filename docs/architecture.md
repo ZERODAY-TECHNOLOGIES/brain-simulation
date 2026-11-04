@@ -80,7 +80,8 @@ Same order as the spec, with reduced-mode changes marked.
 **On user message**
 1. Flush pending clock ticks. If the app was closed, catch up (with sleep if due).
    A message during sleep triggers a forced wake first.
-2. Embed the message through LM Studio. (No prompt logprobs, see D-19.)
+2. Embed the message through LM Studio. (No prompt logprobs, see D-19.) Familiarity and
+   recall come from memory (memory.md): the facts the message cues go into the request.
 3. Compute S, r, A, W. r is the sentiment of this message, applied to the previous
    response: delta = r - V.
 4. Schedule the impulses over the next 10 ticks.
@@ -97,10 +98,12 @@ Same order as the spec, with reduced-mode changes marked.
 **After the response**
 10. ADO += 0.001 x E. Update V and the surprise running stats.
 11. Check the sleep decision: P = ADO - C(phi), MEL level, user idle time.
-12. Save the checkpoint.
+12. Store the turn as an episode and extract its facts in the background (memory.md).
+13. Save the checkpoint and `memory.bin`.
 
 **During sleep** the loop runs on phases: advance the clock, swap the baseline targets at
-each phase change, log replay order in NREM, generate the dream in REM.
+each phase change, replay the most salient episode every 5 minutes of NREM, generate the
+dream in REM.
 
 ## Reduced mode
 
@@ -114,7 +117,7 @@ What the spec asks for and what we can do with LM Studio.
 | E1 steering | Display only | m_k computed and shown, never applied |
 | E2 sampling | Adapted | Once per response (D-04) |
 | E3 plasticity | Not available | No LoRA. eta is computed and shown |
-| E4 memory export | Full | Consumed by ACT-R in Phase 7 |
+| E4 memory export | Full | Consumed by the ACT-R memory (memory.md) |
 | E5 sleep | Full | |
 | NREM replay | Logged | Salience order is computed and logged, feeds ACT-R later |
 | Downscaling, pruning | Not available | Act on LoRA weights. GH is still simulated and shown |
@@ -129,14 +132,14 @@ same `Llm/` boundary. Not built until needed.
 
 ## Dreams in reduced mode
 
-At the start of a REM period of length D, the engine picks 3 to 5 fragments (probability
+At the start of a REM period of length D, the engine picks 3 to 5 memory episodes (probability
 proportional to their emotional tag), shuffles them into a prompt, and requests
 D / 2 seconds worth of tokens with the REM temperature. Tokens are revealed and journaled
 at 1 token per 2 seconds of REM. A forced wake truncates the dream at the revealed point,
-and that text enters the wake-up context. Fragment tags drop by 20% after use.
+and that text enters the wake-up context. Episode tags drop by 20% after use.
 
-Until ACT-R exists, fragments are a simple list in the checkpoint: one entry per turn,
-tagged with DA, NE and CORT at encoding.
+The tag is set at encoding from NE and CORT. Phase 6 kept a fragment list in the checkpoint
+instead; a checkpoint that still has one turns it into episodes on load (D-33).
 
 ## Lab panel and determinism
 
@@ -154,11 +157,12 @@ reads tokens from the journal.
 |---|---|---|
 | Tick journal | Parquet, one row per tick: tick, wall time, phase, C, C-bar, rho, m_k, T, top-p, eta, token | Row group every 1,000 ticks |
 | Events journal | JSON lines next to the tick journal: tick, time, kind, text, values (messages, Lab actions, sleep transitions, clock changes, errors) (D-25) | Each event, flushed |
-| Checkpoint | JSON: brain state, appraisal state, conversation history | After each response and on exit |
+| Checkpoint | JSON: brain state, appraisal state, conversation history, dream journal | After each response and on exit |
+| Memory | `memory.bin`, binary: every chunk with its embedding and presentations (memory.md) | After each response, when facts are learned, and on exit |
 | Config | `config.yaml`, versioned in git | Lab can save a copy |
 
 A crash loses at most the last row group. Everything lives in `%LOCALAPPDATA%\BrainSim`:
-`checkpoint.json` and `journal\session-<start>.parquet` with its `.events.jsonl` (D-26).
+`checkpoint.json`, `memory.bin` and `journal\session-<start>.parquet` with its `.events.jsonl` (D-26).
 
 ## Spec gaps we have to fill
 
