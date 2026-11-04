@@ -49,4 +49,19 @@ public class TickJournalTests
             File.Delete(path);
         }
     }
+
+    [Fact]
+    public void The_history_stays_bounded_when_every_tick_carries_a_token()
+    {
+        var history = new TickHistory(capacity: 100);
+        double[] c = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1];
+
+        for (var t = 0; t < 2_000; t++)
+        {
+            history.Append(new TickRecord(t, new DateTime(2026, 11, 4).AddSeconds(t / 10.0), "Wake", 0, 0, 0, c, c, c, c, [], $"t{t}"));
+        }
+
+        Assert.InRange(history.Count, 1, 100);
+        Assert.Equal(1_999, history.Latest!.Tick);
+    }
 }

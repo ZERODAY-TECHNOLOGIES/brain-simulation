@@ -2,6 +2,7 @@
 
 CRAP(m) = c^2 * (1 - cov)^3 + c, where c is the cyclomatic complexity and cov the line coverage of m.
 Under 10 is the target. Usage: python -I tools/quality/crapper.py <coverage.cobertura.xml> [threshold]
+With --uncovered <text> it lists the uncovered lines of every method whose name contains the text.
 """
 import sys
 import xml.etree.ElementTree as ET
@@ -21,8 +22,20 @@ def methods(path: str):
             yield crap(c, cov), c, cov, cls.get('name'), m.get('name'), cls.get('filename'), m.find('lines/line')
 
 
+def uncovered(path: str, text: str) -> None:
+    for cls in ET.parse(path).getroot().iter('class'):
+        for m in cls.iter('method'):
+            name = f"{cls.get('name')}.{m.get('name')}"
+            if text in name:
+                missed = [l.get('number') for l in m.iter('line') if l.get('hits') == '0']
+                print(f"{name}: uncovered lines {', '.join(missed) or 'none'}  ({cls.get('filename')})")
+
+
 def main() -> None:
     path = sys.argv[1]
+    if len(sys.argv) > 3 and sys.argv[2] == '--uncovered':
+        uncovered(path, sys.argv[3])
+        return
     threshold = float(sys.argv[2]) if len(sys.argv) > 2 else 10
     rows = sorted((r for r in methods(path) if r[0] >= threshold), key=lambda r: -r[0])
     for score, c, cov, cls, name, filename, line in rows:

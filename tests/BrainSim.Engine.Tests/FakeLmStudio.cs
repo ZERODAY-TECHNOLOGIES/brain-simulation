@@ -21,6 +21,9 @@ internal sealed class FakeLmStudio(int replyTokens) : HttpMessageHandler
     /// <summary>When set, embedding and chat calls throw, like LM Studio going away.</summary>
     public bool Down { get; set; }
 
+    /// <summary>When set, every raw completion (dreams) answers with this text in one chunk.</summary>
+    public string? Completion { get; init; }
+
     /// <summary>How long a fact extraction request takes, like the real model does.</summary>
     public TimeSpan ExtractionDelay { get; init; }
 
@@ -65,7 +68,12 @@ internal sealed class FakeLmStudio(int replyTokens) : HttpMessageHandler
             // Raw completion, used for dreams: tokens d0, d1, ...
             CompletionRequests.Add(JsonDocument.Parse(body));
             var sse = new StringBuilder();
-            for (var i = 0; i < replyTokens; i++)
+            if (Completion is { } completion)
+            {
+                sse.Append("data: " + JsonSerializer.Serialize(new { choices = new[] { new { text = completion } } }) + "\n\n");
+            }
+
+            for (var i = 0; i < (Completion is null ? replyTokens : 0); i++)
             {
                 sse.Append("data: {\"choices\":[{\"text\":\"d" + i + " \"}]}\n\n");
             }

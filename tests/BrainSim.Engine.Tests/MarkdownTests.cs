@@ -46,4 +46,13 @@ public class MarkdownTests
     {
         Assert.Equal([new MarkdownSpan("This is **bol", SpanStyle.None)], Markdown.Inline("This is **bol"));
     }
+
+    [Fact]
+    public void A_plain_line_is_a_paragraph()
+    {
+        var block = Assert.Single(Markdown.Parse("Just a sentence, with *some* emphasis."));
+
+        Assert.Equal(BlockKind.Paragraph, block.Kind);
+        Assert.Equal(["Just a sentence, with ", "some", " emphasis."], block.Spans.Select(s => s.Text));
+    }
 }

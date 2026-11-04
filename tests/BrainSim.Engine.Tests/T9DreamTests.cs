@@ -155,4 +155,20 @@ public class T9DreamTests
         await agent.Dreamer.Generation!.WaitAsync(TimeSpan.FromSeconds(10), ct);
         Assert.All(agent.Dreamer.Current!.Seeds, seed => Assert.Contains(seed, texts));
     }
+
+    [Fact]
+    public async Task A_model_that_only_returns_punctuation_ends_the_dream()
+    {
+        var fake = new FakeLmStudio(replyTokens: 40) { Completion = " . , " };
+        var client = new LmStudioClient(new HttpClient(fake) { BaseAddress = new Uri(Config.Llm.BaseUrl) }, Config.Llm);
+        var agent = new Agent(Config, client, new Dictionary<string, LinearProbe>(), () => Night);
+        agent.Memory.AddEpisode("a quiet walk by the lake", null, Enumerable.Repeat(1.0, Substances.Count).ToArray(), default, Night.AddHours(-1));
+        agent.Brain.Chemistry[Substance.Adenosine] = Config.Sleep.ForcedAdenosine;
+
+        agent.Brain.AdvanceTo(Night.AddMinutes(81).AddSeconds(35));
+        await agent.Dreamer.Generation!.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+
+        Assert.Equal(3, fake.CompletionRequests.Count); // three empty segments in a row, then it stops asking
+        Assert.Equal("", agent.Dreamer.Current!.Text);
+    }
 }

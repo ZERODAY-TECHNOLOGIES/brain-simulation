@@ -103,4 +103,18 @@ public class AgentTests
             File.Delete(path);
         }
     }
+
+    [Fact]
+    public async Task The_history_kept_is_capped_at_400_messages_dropping_the_oldest()
+    {
+        var (agent, _, _) = Create(replyTokens: 1);
+
+        for (var i = 0; i < 201; i++)
+        {
+            await agent.SendAsync($"message {i}", cancellationToken: TestContext.Current.CancellationToken);
+        }
+
+        Assert.Equal(400, agent.History.Count);
+        Assert.Equal("message 1", agent.History[0].Content);
+    }
 }

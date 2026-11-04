@@ -100,6 +100,35 @@ public class HostingTests
     }
 
     [Fact]
+    public async Task A_later_message_logs_its_reward_and_what_it_recalled()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var directory = Path.Combine(Path.GetTempPath(), $"brainsim-host-{Guid.NewGuid():N}");
+        var llm = new LmStudioClient(new HttpClient(new FakeLmStudio(20)) { BaseAddress = new Uri(Config.Llm.BaseUrl) }, Config.Llm);
+        try
+        {
+            await using var host = new EngineHost(Config, llm, new Dictionary<string, LinearProbe>(), directory);
+            var replies = 0;
+            host.Replied += _ => Interlocked.Increment(ref replies);
+            await host.StartAsync();
+
+            host.Send("hello");
+            await WaitUntilAsync(() => host.Events.Snapshot().Any(e => e.Text.StartsWith("Learned: ")), ct);
+            host.Send("hello again"); // the fake embeds every message alike, so this cues the fact
+            await WaitUntilAsync(() => replies == 2, ct);
+
+            var events = host.Events.Snapshot();
+            Assert.Contains("r", events.Last(e => e.Kind == EventKinds.User).Values!.Keys);
+            Assert.Equal(1, events.Last(e => e.Kind == EventKinds.User).Values!["M"]);
+            Assert.Contains(events, e => e.Kind == EventKinds.Memory && e.Text.StartsWith("Recalled 1 fact: t0 t1"));
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task Closing_right_after_a_reply_keeps_its_facts()
     {
         var ct = TestContext.Current.CancellationToken;

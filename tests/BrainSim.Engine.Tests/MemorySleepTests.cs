@@ -85,4 +85,18 @@ public class MemorySleepTests
 
         Assert.True(memory.ReplayWeight(SleepPhase.N3, new MemoryModulation(0, 0, 0, 0.12)) > memory.ReplayWeight(SleepPhase.N3, default));
     }
+
+    [Fact]
+    public void A_night_with_no_memories_replays_nothing()
+    {
+        var memory = new DeclarativeMemory(Config.Memory);
+        var replays = 0;
+        memory.Replayed += _ => replays++;
+        var brain = Hooked(memory, asleep: true);
+
+        brain.AdvanceTo(Night.AddHours(3));
+
+        Assert.Equal(0, replays);
+        Assert.Empty(memory.Snapshot());
+    }
 }
