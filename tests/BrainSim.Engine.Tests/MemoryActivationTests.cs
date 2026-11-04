@@ -103,6 +103,19 @@ public class MemoryActivationTests
     }
 
     [Fact]
+    public void Recall_and_familiarity_need_a_cue_however_fresh_the_fact()
+    {
+        var memory = new DeclarativeMemory(Config.Memory);
+        Fact(memory, Unit(1, 0), Now.AddSeconds(-10)); // fresh: base level far above the threshold
+
+        var unrelated = Unit(0, 1);
+
+        Assert.Empty(memory.RecallFacts(unrelated, default, Now));
+        Assert.Equal(0, memory.Familiarity(unrelated, default, Now));
+        Assert.Single(memory.RecallFacts(Unit(1, 0), default, Now));
+    }
+
+    [Fact]
     public void Empty_memory_recalls_nothing_and_is_unfamiliar()
     {
         var memory = new DeclarativeMemory(Config.Memory);

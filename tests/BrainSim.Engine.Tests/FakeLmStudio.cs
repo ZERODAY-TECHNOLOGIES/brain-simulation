@@ -7,7 +7,9 @@ namespace BrainSim.Engine.Tests;
 /// <summary>Fake LM Studio: "thanks" embeds as praise, everything else as neutral; replies with a fixed token count.</summary>
 internal sealed class FakeLmStudio(int replyTokens) : HttpMessageHandler
 {
+    /// <summary>Reply requests only. Fact extraction runs in the background, so its requests go to <see cref="ExtractionRequests"/>.</summary>
     public List<JsonDocument> ChatRequests { get; } = [];
+    public List<JsonDocument> ExtractionRequests { get; } = [];
     public List<JsonDocument> CompletionRequests { get; } = [];
 
     /// <summary>When set, embeddings come from this, one vector per input. Otherwise the "thanks" rule above.</summary>
@@ -19,10 +21,13 @@ internal sealed class FakeLmStudio(int replyTokens) : HttpMessageHandler
     /// <summary>When set, embedding and chat calls throw, like LM Studio going away.</summary>
     public bool Down { get; set; }
 
+    /// <summary>When set, only the embeddings endpoint fails; chat keeps answering.</summary>
+    public bool EmbeddingsDown { get; set; }
+
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
         var body = await request.Content!.ReadAsStringAsync(cancellationToken);
-        if (Down)
+        if (Down || (EmbeddingsDown && request.RequestUri!.AbsolutePath.EndsWith("embeddings")))
         {
             throw new HttpRequestException("LM Studio is not running");
         }
@@ -55,12 +60,12 @@ internal sealed class FakeLmStudio(int replyTokens) : HttpMessageHandler
         else if (Reply is { } reply)
         {
             var document = JsonDocument.Parse(body);
-            ChatRequests.Add(document);
+            Record(document);
             response = "data: " + JsonSerializer.Serialize(new { choices = new[] { new { delta = new { content = reply(document) } } } }) + "\n\ndata: [DONE]\n\n";
         }
         else
         {
-            ChatRequests.Add(JsonDocument.Parse(body));
+            Record(JsonDocument.Parse(body));
             var sse = new StringBuilder();
             for (var i = 0; i < replyTokens; i++)
             {
@@ -71,5 +76,15 @@ internal sealed class FakeLmStudio(int replyTokens) : HttpMessageHandler
         }
 
         return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(response) };
+    }
+
+    private void Record(JsonDocument request)
+    {
+        var extraction = request.RootElement.GetProperty("messages")[0].GetProperty("content").GetString() == Memory.FactExtractor.Instruction;
+        var list = extraction ? ExtractionRequests : ChatRequests;
+        lock (list)
+        {
+            list.Add(request);
+        }
     }
 }

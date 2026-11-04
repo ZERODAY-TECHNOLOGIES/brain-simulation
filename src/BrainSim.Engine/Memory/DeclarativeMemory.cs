@@ -140,9 +140,14 @@ public sealed class DeclarativeMemory(MemoryConfig config, int seed = 11)
         var s = NoiseScale(m);
         lock (_gate)
         {
+            // Retrieval is cue driven, as in ACT-R: only facts the message actually points at (S > 0) compete.
+            // Without this, every fresh fact passes on base level alone, is recalled for any message, and each
+            // recall strengthens it again, so it never fades while the conversation goes on.
             var recalled = _chunks
                 .Where(c => c is { Kind: ChunkKind.Fact, Archived: false, Embedding: not null })
-                .Select(c => new Recall(c, BaseLevel(c, now) + Spreading(query, c) + Noise(s)))
+                .Select(c => (Chunk: c, Spread: Spreading(query, c)))
+                .Where(x => x.Spread > 0)
+                .Select(x => new Recall(x.Chunk, BaseLevel(x.Chunk, now) + x.Spread + Noise(s)))
                 .Where(r => r.Activation > tau)
                 .OrderByDescending(r => r.Activation)
                 .Take(config.RecallCount)
@@ -167,7 +172,9 @@ public sealed class DeclarativeMemory(MemoryConfig config, int seed = 11)
         {
             var best = _chunks
                 .Where(c => c is { Archived: false, Embedding: not null })
-                .Select(c => BaseLevel(c, now) + Spreading(query, c))
+                .Select(c => (Chunk: c, Spread: Spreading(query, c)))
+                .Where(x => x.Spread > 0) // familiar means this message points at something, not that memory is fresh
+                .Select(x => BaseLevel(x.Chunk, now) + x.Spread)
                 .DefaultIfEmpty(double.NegativeInfinity)
                 .Max();
             return double.IsNegativeInfinity(best) ? 0 : Math.Clamp((best - Threshold(m)) / 2, 0, 1);

@@ -204,7 +204,7 @@ public sealed class EngineHost : IAsyncDisposable
                 message,
                 token => TokenReceived?.Invoke(token),
                 cancellationToken,
-                (signals, sampling) =>
+                (signals, sampling, _) =>
                 {
                     var values = new Dictionary<string, double>
                     {

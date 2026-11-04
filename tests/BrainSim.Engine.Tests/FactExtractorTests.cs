@@ -58,7 +58,7 @@ public class FactExtractorTests
         var facts = await FactExtractor.ExtractAsync(llm, "My sister is called Ilinca.\nWhat a lovely name.", Config.Memory, TestContext.Current.CancellationToken);
 
         Assert.Equal(["The user's sister is called Ilinca."], facts);
-        var request = fake.ChatRequests.Single().RootElement;
+        var request = fake.ExtractionRequests.Single().RootElement;
         Assert.Equal(0.2, request.GetProperty("temperature").GetDouble(), 9);
         Assert.Equal(150, request.GetProperty("max_tokens").GetInt32());
         var system = request.GetProperty("messages")[0];
