@@ -142,3 +142,12 @@ sleep:
     N2:  { NE: 0.4,  5-HT: 0.5,  ACh: 0.4, DA: 0.8, GH: 1.5 }
     N3:  { NE: 0.2,  5-HT: 0.4,  ACh: 0.2, DA: 0.7, GH: 3.0 }
     REM: { NE: 0.05, 5-HT: 0.05, ACh: 1.4, DA: 1.1, GH: 1.0 }
+
+# LM Studio, the language cortex. Port 1235 is what this machine uses (see decisions.md).
+llm:
+  base_url: http://localhost:1235/v1/
+  chat_model: qwen/qwen3.5-0.8b
+  embedding_model: text-embedding-nomic-embed-text-v1.5
+  embedding_prefix: "classification: "   # nomic-embed task prefix, used for probes and surprise
+  system_prompt: You are a helpful assistant.
+  history_messages: 20                   # past messages sent with each request

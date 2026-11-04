@@ -15,6 +15,7 @@ public sealed record EngineConfig
     public AppraisalConfig Appraisal { get; init; } = new();
     public CircadianConfig Circadian { get; init; } = new();
     public SleepConfig Sleep { get; init; } = new();
+    public LlmConfig Llm { get; init; } = new();
 
     public static EngineConfig LoadDefault() => Load(Path.Combine(AppContext.BaseDirectory, "config.yaml"));
 
@@ -148,4 +149,14 @@ public sealed record SleepConfig
     public double RemFractionStart { get; init; } = 0.10;
     public double RemFractionStep { get; init; } = 0.08;
     public Dictionary<string, Dictionary<string, double>> PhaseTargets { get; init; } = [];
+}
+
+public sealed record LlmConfig
+{
+    public string BaseUrl { get; init; } = "http://localhost:1234/v1/";
+    public string ChatModel { get; init; } = "";
+    public string EmbeddingModel { get; init; } = "";
+    public string EmbeddingPrefix { get; init; } = "";
+    public string SystemPrompt { get; init; } = "";
+    public int HistoryMessages { get; init; } = 20;
 }
