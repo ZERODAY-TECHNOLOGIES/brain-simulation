@@ -122,7 +122,7 @@ What the spec asks for and what we can do with LM Studio.
 | T1, T4, T6, T8 | Apply | |
 | T2, T3, T7 | Do not apply | Need hooks or training |
 | T5 | Changes meaning | Only sampling differs between the chemistry and the prompt control |
-| T9 | Partial | Perplexity part needs prompt logprobs, which LM Studio does not give |
+| T9 | Partial | Tags drop only with REM and a forced wake from REM keeps the dream (tested). Perplexity needs logprobs the completion endpoint does not give (D-30) |
 
 Upgrade path: a second backend running transformers (Python or TorchSharp) behind the
 same `Llm/` boundary. Not built until needed.

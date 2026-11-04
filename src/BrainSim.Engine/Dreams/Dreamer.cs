@@ -28,12 +28,12 @@ public sealed class Dreamer
     private readonly LmStudioClient _llm;
     private readonly Random _random = new(7);
     private readonly List<Fragment> _fragments = [];
-    private readonly List<Dream> _journal = [];
+    private IReadOnlyList<Dream> _journal = []; // replaced, never mutated, so the UI thread can read it any time
     private readonly Lock _gate = new();
     private readonly List<string> _generated = [];
     private DateTime? _remStart;
     private bool _dreamedThisRem;
-    private (DateTime Start, string[] Seeds, double[] Chemistry)? _current;
+    private Draft? _current;
     private int _revealed;
     private CancellationTokenSource? _cancel;
     private string? _wakeMemory;
@@ -48,6 +48,9 @@ public sealed class Dreamer
     public IReadOnlyList<Fragment> Fragments => _fragments;
     public IReadOnlyList<Dream> Journal => _journal;
 
+    /// <summary>The dream being generated. A class, so the UI thread always reads a whole one.</summary>
+    private sealed record Draft(DateTime Start, string[] Seeds, double[] Chemistry);
+
     /// <summary>The generation running for the current dream, if any. Tests await it.</summary>
     public Task? Generation { get; private set; }
 
@@ -56,12 +59,8 @@ public sealed class Dreamer
     {
         get
         {
-            if (_current is not { } c)
-            {
-                return null;
-            }
-
-            return new Dream(c.Start, DateTime.MinValue, c.Seeds, c.Chemistry, RevealedText(), Interrupted: false);
+            var c = _current;
+            return c is null ? null : new Dream(c.Start, DateTime.MinValue, c.Seeds, c.Chemistry, RevealedText(), Interrupted: false);
         }
     }
 
@@ -110,6 +109,7 @@ public sealed class Dreamer
 
         if (_current is { } dream)
         {
+            // Reveal at one token per seconds_per_token of REM, never ahead of what the model has produced.
             var due = (int)((brain.Now - dream.Start).TotalSeconds / _config.SecondsPerToken);
             lock (_gate)
             {
@@ -132,9 +132,8 @@ public sealed class Dreamer
     public void Restore(DreamState? state)
     {
         _fragments.Clear();
-        _journal.Clear();
         _fragments.AddRange(state?.Fragments ?? []);
-        _journal.AddRange(state?.Journal ?? []);
+        _journal = [.. state?.Journal ?? []];
     }
 
     private void Begin(Brain brain)
@@ -161,7 +160,7 @@ public sealed class Dreamer
             _revealed = 0;
         }
 
-        _current = (brain.Now, shuffled, [.. brain.Chemistry.C]);
+        _current = new Draft(brain.Now, shuffled, [.. brain.Chemistry.C]);
         _cancel = new CancellationTokenSource();
         var token = _cancel.Token;
         Generation = Task.Run(async () =>
@@ -199,13 +198,10 @@ public sealed class Dreamer
         }
 
         _cancel?.Cancel();
+        _cancel?.Dispose();
         var dream = new Dream(c.Start, now, c.Seeds, c.Chemistry, RevealedText(), interrupted);
         _current = null;
-        _journal.Add(dream);
-        if (_journal.Count > _config.JournalKept)
-        {
-            _journal.RemoveAt(0);
-        }
+        _journal = [.. _journal.Skip(Math.Max(0, _journal.Count + 1 - _config.JournalKept)), dream];
 
         Finished?.Invoke(dream);
         return dream;

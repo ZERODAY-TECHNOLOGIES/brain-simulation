@@ -264,6 +264,23 @@ See [conventions.md](conventions.md#git).
   window, and WPF cannot draw the layer and camera controls over it. The D3DImage path
   still holds 58 to 60 fps on the MX550 with the full scene.
 
+### D-30. Dreams in reduced mode
+- **Date:** 2026-11-04
+- **Fragments:** every turn (user message plus reply) is kept as a fragment, the last 100,
+  with an emotional tag of 0.05 + (NE - 1)+ + (CORT - 1)+ at the end of the reply. The
+  0.05 floor lets calm memories be dreamt too, just rarely.
+- **Timing:** a dream starts once REM has lasted 30 seconds, so NE has fallen near its REM
+  target and the E2 formula gives T close to 1.0, as the spec describes. It asks for the
+  rest of that REM period at one token per 2 seconds.
+- **No instructions:** dreams use LM Studio's raw completion endpoint, not chat, so the
+  shuffled fragments are continued as text instead of being answered.
+- **Waking from REM:** only a forced wake from REM keeps the dream; it enters the context
+  as a system message. A dream that ends with REM stays in the journal only.
+- **Not measurable here:** the completion endpoint returns no logprobs, so T9's "dreams
+  have higher perplexity" cannot be checked; the "baseline performance" part needs LoRA.
+- **Fast time:** at x600 a 9 minute REM lasts under a second, so a dream only gets the
+  tokens the model produced in that second. Dreams read best at x1 to x60.
+
 ## Open
 
 No open questions right now.

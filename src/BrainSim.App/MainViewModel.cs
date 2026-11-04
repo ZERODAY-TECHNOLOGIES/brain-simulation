@@ -40,6 +40,9 @@ public sealed record WindowOption(string Label, long Ticks)
 
 public sealed record Marker(long Tick, Brush Brush);
 
+/// <summary>One dream journal entry as shown in the Dreams panel.</summary>
+public sealed record DreamItem(string When, string Details, string Seeds, string Text);
+
 /// <summary>
 /// The app state. Everything is drawn "as of" <see cref="CursorTick"/>: live, the cursor follows the newest tick;
 /// in replay, or after dragging the timeline, it stays where it was put.
@@ -121,6 +124,7 @@ public sealed partial class MainViewModel : ObservableObject
     public IReadOnlyList<double> ReplaySpeeds { get; } = [1, 10, 60, 600];
 
     public ObservableCollection<ChatItem> Chat { get; } = [];
+    public ObservableCollection<DreamItem> Dreams { get; } = [];
     public ObservableCollection<SubstanceRow> SubstanceRows { get; }
     /// <summary>W as a 10 by 10 grid, rows are the source, columns the target, in substance order.</summary>
     public IReadOnlyList<WCell> WCells { get; }
@@ -167,8 +171,76 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty] private bool _stable = true;
     [ObservableProperty] private string _samplingText = "";
     [ObservableProperty] private string _lastSamplingText = "";
+    [ObservableProperty] private bool _dreaming;
+    [ObservableProperty] private string _currentDream = "";
+    [ObservableProperty] private string _currentDreamSeeds = "";
+    [ObservableProperty] private string _dreamsEmptyText = "No dreams yet. They come in REM sleep, once there are memories to dream about.";
 
     public bool CanEdit => !IsReplayFile;
+
+    /// <summary>1 while a dream is being dreamt, live. Lights the hippocampus, where the seeds come from.</summary>
+    public double DreamActivity() => IsLive && _host.Agent.Dreamer.Current is not null ? 1 : 0;
+
+    private int _dreamCount = -1;
+    private bool _dreamSource;
+
+    /// <summary>Live: from the dreamer, with seeds. A saved session: from its events journal, without seeds.</summary>
+    private void RefreshDreams()
+    {
+        var current = IsLive ? _host.Agent.Dreamer.Current : null;
+        Dreaming = current is not null;
+        CurrentDream = current?.Text ?? "";
+        CurrentDreamSeeds = current is null ? "" : string.Join("   |   ", current.Seeds.Select(Short));
+
+        if (IsReplayFile)
+        {
+            var events = Events.Snapshot().Where(e => e.Kind == EventKinds.Dream).ToList();
+            if (events.Count == _dreamCount && _dreamSource)
+            {
+                return;
+            }
+
+            _dreamCount = events.Count;
+            _dreamSource = true;
+            Dreams.Clear();
+            foreach (var e in Enumerable.Reverse(events))
+            {
+                var v = e.Values ?? [];
+                Dreams.Add(new DreamItem(
+                    $"{e.Time:ddd HH:mm}",
+                    $"{Get(v, "minutes", "0.0")} min   {(v.GetValueOrDefault("interrupted") > 0 ? "woken from it" : "slept through")}   NE {Get(v, "NE")}   5-HT {Get(v, "5-HT")}   ACh {Get(v, "ACh")}",
+                    $"{Get(v, "seeds", "0")} seed fragments",
+                    e.Text));
+            }
+
+            return;
+        }
+
+        var journal = _host.Agent.Dreamer.Journal;
+        if (journal.Count == _dreamCount && !_dreamSource)
+        {
+            return;
+        }
+
+        _dreamCount = journal.Count;
+        _dreamSource = false;
+        Dreams.Clear();
+        foreach (var d in journal.Reverse())
+        {
+            var c = d.Chemistry;
+            Dreams.Add(new DreamItem(
+                $"{d.Start:ddd HH:mm}",
+                $"{(d.End - d.Start).TotalMinutes:0.0} min   {(d.Interrupted ? "woken from it" : "slept through")}   NE {c[(int)Substance.Norepinephrine]:0.00}   5-HT {c[(int)Substance.Serotonin]:0.00}   ACh {c[(int)Substance.Acetylcholine]:0.00}",
+                string.Join("   |   ", d.Seeds.Select(Short)),
+                d.Text.Length > 0 ? d.Text : "(nothing came through before the dream ended)"));
+        }
+    }
+
+    private static string Short(string fragment)
+    {
+        var line = fragment.Split('\n')[0];
+        return line.Length > 60 ? line[..57] + "..." : line;
+    }
 
     /// <summary>Threat A of the last live message, fading over about two seconds. Lights the amygdala.</summary>
     public double ThreatPulse() =>
@@ -355,6 +427,7 @@ public sealed partial class MainViewModel : ObservableObject
                 .Select(e => new Marker(e.Tick, MarkerBrush(e.Kind)))];
             OnPropertyChanged(nameof(Markers));
             RebuildChat(force: false);
+            RefreshDreams();
         }
     }
 
