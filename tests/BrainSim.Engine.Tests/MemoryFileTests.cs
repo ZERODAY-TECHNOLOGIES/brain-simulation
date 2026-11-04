@@ -78,6 +78,30 @@ public sealed class MemoryFileTests : IDisposable
     }
 
     [Fact]
+    public void A_readable_file_of_another_format_is_set_aside()
+    {
+        using (var writer = new BinaryWriter(File.Create(_path)))
+        {
+            writer.Write("MEM0"); // a header that reads fine but is not this format
+            writer.Write(0);
+        }
+
+        Assert.Empty(MemoryFile.Load(_path));
+        Assert.True(File.Exists(_path + ".bad"));
+        Assert.False(File.Exists(_path));
+    }
+
+    [Fact]
+    public void A_second_corrupt_file_replaces_the_one_set_aside_before()
+    {
+        File.WriteAllBytes(_path + ".bad", [1]);
+        File.WriteAllBytes(_path, [9, 9, 9]);
+
+        Assert.Empty(MemoryFile.Load(_path));
+        Assert.Equal([9, 9, 9], File.ReadAllBytes(_path + ".bad"));
+    }
+
+    [Fact]
     public void A_missing_file_is_an_empty_memory()
     {
         Assert.Empty(MemoryFile.Load(_path));
