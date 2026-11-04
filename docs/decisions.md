@@ -127,6 +127,23 @@ See [conventions.md](conventions.md#git).
 - **Decision:** D-10 covers project text only. The agent's replies and dreams are not
   filtered.
 
+## Helix Toolkit spike results (2026-11-04)
+
+`spikes/HelixSpike`: HelixToolkit.Wpf.SharpDX 3.1.2 on .NET 10, on this laptop's MX550.
+- Runs on .NET 10 with no compatibility problems (the package targets net6.0-windows and net8.0-windows).
+- Scene: transparent cortex ellipsoid (weighted OIT), 5 emissive nuclei with bloom, 20,000
+  points rebuilt on the CPU every frame along 11 Bezier pathways, with bloom too.
+- **59 to 60 frames per second** after warm-up, which is the vsync cap. D-02 risk closed.
+- Bloom (`PostEffectBloom` with `PostEffects = "bloom"`) and transparency work as expected.
+- **No fresnel material ships with Helix.** The cortex looks like a flat translucent
+  shell. Phase 5 options: `PostEffectMeshXRay` for the rim glow, or a custom shader.
+- At full release rate the particles merge into continuous lines. Phase 5 should spawn
+  particles in proportion to the impulse instead of keeping a fixed pool always moving.
+- Helix 3 namespaces: `HelixToolkit` (collections), `HelixToolkit.Maths` (Color4),
+  `HelixToolkit.Geometry` (MeshBuilder), `HelixToolkit.SharpDX` (geometries, OIT),
+  `HelixToolkit.Wpf.SharpDX` (WPF elements). The XML docs are incomplete, so check the
+  compiler first.
+
 ### D-20. Slow OXT, 5-HT, CORT interactions scaled by 0.4
 - **Date:** 2026-11-04
 - **Context:** With the spec's W, the linearized system -K + W has an eigenvalue of

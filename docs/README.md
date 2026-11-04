@@ -51,8 +51,9 @@ Each phase ends with something you can run and see.
 ## Status
 
 As of 2026-11-04:
-- **Phase 0:** LM Studio spike done (results in [decisions.md](decisions.md#lm-studio-spike-results-2026-11-04)).
-  Helix Toolkit spike not started.
+- **Phase 0:** done. LM Studio and Helix Toolkit spikes both pass (results in
+  [decisions.md](decisions.md#lm-studio-spike-results-2026-11-04)). The Helix spike lives in
+  `spikes/HelixSpike`, outside the solution, and is not production code.
 - **Phase 1:** done. Chemistry, receptors, modulation channels, config and the Parquet tick
   journal, with tests for T1, T6, baseline neutrality and stability. The spec's W was
   unstable and had to be recalibrated (D-20).
