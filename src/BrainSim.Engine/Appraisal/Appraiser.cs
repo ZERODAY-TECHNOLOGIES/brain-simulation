@@ -79,6 +79,26 @@ public sealed class Appraiser
         }
     }
 
+    public AppraiserState Save() => new(ExpectedReward, [.. _recent], [.. _novelty], _pendingReward);
+
+    public void Restore(AppraiserState state)
+    {
+        ExpectedReward = state.ExpectedReward;
+        _recent.Clear();
+        _novelty.Clear();
+        foreach (var e in state.Recent)
+        {
+            _recent.Enqueue(e);
+        }
+
+        foreach (var n in state.Novelty)
+        {
+            _novelty.Enqueue(n);
+        }
+
+        _pendingReward = state.PendingReward;
+    }
+
     /// <summary>
     /// Novelty = 1 - max cosine similarity to the recent messages, z-scored against the recent novelty values,
     /// clipped to [0, surprise_max]. Embeddings from LM Studio are unit length, so the dot product is the cosine.
@@ -133,3 +153,5 @@ public sealed class Appraiser
         return sum;
     }
 }
+
+public sealed record AppraiserState(double ExpectedReward, List<float[]> Recent, List<double> Novelty, double? PendingReward);

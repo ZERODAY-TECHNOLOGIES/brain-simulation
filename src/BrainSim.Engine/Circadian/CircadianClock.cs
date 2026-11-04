@@ -91,9 +91,21 @@ public sealed class CircadianClock
         _wasDark = dark;
     }
 
+    public ClockSnapshot Save() => new(ShiftHours, _lightUntil, _wasDark, _lightMinutesThisNight);
+
+    public void Restore(ClockSnapshot snapshot)
+    {
+        ShiftHours = snapshot.ShiftHours;
+        _lightUntil = snapshot.LightUntil;
+        _wasDark = snapshot.WasDark;
+        _lightMinutesThisNight = snapshot.LightMinutesThisNight;
+    }
+
     private double DarkLength => Mod24(_config.DarkEnd - _config.DarkStart);
 
     private double HoursIntoDark(double phi) => Mod24(phi - _config.DarkStart);
 
     private static double Mod24(double hours) => ((hours % 24) + 24) % 24;
 }
+
+public sealed record ClockSnapshot(double ShiftHours, DateTime LightUntil, bool WasDark, double LightMinutesThisNight);

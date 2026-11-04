@@ -99,6 +99,20 @@ public sealed class ChemicalState
         Tick++;
     }
 
+    public ChemistrySnapshot Save() => new([.. C], [.. _pending.Select(p => p.ToArray())], _slot, Tick);
+
+    public void Restore(ChemistrySnapshot snapshot)
+    {
+        Array.Copy(snapshot.C, C, N);
+        for (var i = 0; i < _pending.Length; i++)
+        {
+            Array.Copy(snapshot.Pending[i], _pending[i], N);
+        }
+
+        _slot = snapshot.Slot;
+        Tick = snapshot.Tick;
+    }
+
     /// <summary>The linearized system -K + W. All eigenvalues must have negative real parts (spec, validation).</summary>
     public double[,] LinearizedMatrix(bool asleep)
     {
@@ -111,3 +125,6 @@ public sealed class ChemicalState
         return m;
     }
 }
+
+/// <summary>Everything needed to resume the chemistry exactly. Baselines and sources are recomputed each tick.</summary>
+public sealed record ChemistrySnapshot(double[] C, double[][] Pending, int Slot, long Tick);

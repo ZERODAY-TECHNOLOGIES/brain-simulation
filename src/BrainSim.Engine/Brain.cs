@@ -17,6 +17,19 @@ public enum TransitionKind
 
 public readonly record struct SleepTransition(DateTime Time, TransitionKind Kind, SleepPhase From);
 
+/// <summary>Everything needed to resume a brain exactly where it stopped (spec loop step 12).</summary>
+public sealed record BrainCheckpoint(
+    DateTime Now,
+    SleepPhase Phase,
+    int Cycle,
+    DateTime? SleepOnset,
+    DateTime LastUserMessage,
+    DateTime AwakeningUntil,
+    ChemistrySnapshot Chemistry,
+    double[] MeanC,
+    double[] Rho,
+    ClockSnapshot Clock);
+
 /// <summary>
 /// Everything that runs on ticks, without the LLM: chemistry, receptors, modulation, the clock and sleep.
 /// The caller supplies the time of each tick, so real and simulated clocks work the same way.
@@ -79,12 +92,15 @@ public sealed class Brain
 
     public event Action<SleepTransition>? Transition;
 
+    /// <summary>Raised after every tick, with the generated token when the tick is one.</summary>
+    public event Action<Brain, string?>? Ticked;
+
     /// <summary>Net sleep pressure P = (ADO - b) - C(phi). Measured from baseline, see D-21.</summary>
     public double SleepPressure =>
         Chemistry.C[Ado] - Chemistry.RestingBaseline - CircadianClock.Alertness(Clock.Phase(Now));
 
-    /// <summary>Advances one tick that happens at <paramref name="now"/>.</summary>
-    public void Tick(DateTime now)
+    /// <summary>Advances one tick that happens at <paramref name="now"/>. <paramref name="token"/> is set for generated tokens.</summary>
+    public void Tick(DateTime now, string? token = null)
     {
         var elapsed = (now - Now).TotalSeconds;
         Now = now;
@@ -99,6 +115,27 @@ public sealed class Brain
         Receptors.Step(Chemistry.C);
         Modulation.Compute(Chemistry.C, Receptors);
         CheckSleepDecision();
+        Ticked?.Invoke(this, token);
+    }
+
+    public BrainCheckpoint Save() => new(
+        Now, Phase, Cycle, SleepOnset, _lastUserMessage, _awakeningUntil,
+        Chemistry.Save(), [.. Receptors.MeanC], [.. Receptors.Rho], Clock.Save());
+
+    public void Restore(BrainCheckpoint checkpoint)
+    {
+        Now = checkpoint.Now;
+        Phase = checkpoint.Phase;
+        Cycle = checkpoint.Cycle;
+        SleepOnset = checkpoint.SleepOnset;
+        _lastUserMessage = checkpoint.LastUserMessage;
+        _awakeningUntil = checkpoint.AwakeningUntil;
+        Chemistry.Restore(checkpoint.Chemistry);
+        Chemistry.Asleep = Asleep;
+        Array.Copy(checkpoint.MeanC, Receptors.MeanC, Substances.Count);
+        Array.Copy(checkpoint.Rho, Receptors.Rho, Substances.Count);
+        Clock.Restore(checkpoint.Clock);
+        Modulation.Compute(Chemistry.C, Receptors);
     }
 
     /// <summary>Idle time: ticks at ticks_per_second of clock time until <paramref name="until"/>.</summary>
