@@ -3,8 +3,8 @@ obj/
 .vs/
 *.user
 TestResults/
-# runtime output
-journal/
-checkpoints/
-data/
+# runtime output and download caches, at the root only: unanchored, "journal/" also matched src/BrainSim.Engine/Journal on Windows
+/journal/
+/checkpoints/
+/data/
 .claude/settings.local.json
