@@ -1,0 +1,68 @@
+<UserControl x:Class="BrainSim.App.Views.MemoryView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="clr-namespace:BrainSim.App.Controls">
+  <UserControl.Resources>
+    <BooleanToVisibilityConverter x:Key="Visible" />
+  </UserControl.Resources>
+
+  <ScrollViewer Background="{StaticResource SurfaceBrush}" VerticalScrollBarVisibility="Auto">
+    <StackPanel Margin="12,6">
+      <TextBlock Text="{Binding MemoryHeader}" Style="{StaticResource Number}" TextWrapping="Wrap" Margin="0,4,0,8" AutomationProperties.AutomationId="MemoryHeader" />
+      <TextBlock Visibility="{Binding MemoryEmpty, Converter={StaticResource Visible}}" Style="{StaticResource Muted}" TextWrapping="Wrap"
+                 Text="Nothing remembered yet. Every turn becomes an episode, and the lasting facts in it are extracted in the background." />
+
+      <TextBlock Text="Facts" Style="{StaticResource SectionTitle}" />
+      <TextBlock Text="Base level against the retrieval threshold (the tick). A message has to point at a fact for it to be recalled. Highlighted: recalled for the last message."
+                 Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,4" />
+      <ItemsControl ItemsSource="{Binding Facts}" AutomationProperties.AutomationId="MemoryFacts">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate>
+            <Border BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1" Padding="6,5" CornerRadius="3">
+              <Border.Style>
+                <Style TargetType="Border">
+                  <Style.Triggers>
+                    <DataTrigger Binding="{Binding RecalledNow}" Value="True">
+                      <Setter Property="Background" Value="#1A2A24" />
+                    </DataTrigger>
+                  </Style.Triggers>
+                </Style>
+              </Border.Style>
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="Auto" />
+                  <ColumnDefinition />
+                </Grid.ColumnDefinitions>
+                <c:LevelBar Width="70" Height="6" Margin="0,6,10,0" VerticalAlignment="Top" Max="6" Baseline="3" Value="{Binding Level}"
+                            Fill="#34D399" Visibility="{Binding HasLevel, Converter={StaticResource Visible}}" />
+                <StackPanel Grid.Column="1">
+                  <TextBlock Text="{Binding Text}" Foreground="{StaticResource TextBrush}" TextWrapping="Wrap" />
+                  <TextBlock Text="{Binding Details}" Style="{StaticResource Muted}" FontFamily="{StaticResource NumberFont}" TextWrapping="Wrap" />
+                </StackPanel>
+              </Grid>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+
+      <TextBlock Text="Episodes" Style="{StaticResource SectionTitle}" Margin="0,12,0,0" />
+      <TextBlock Text="The turns, newest first. The tag is how stressed and alert the brain was (dreams draw on it); salience decides what NREM sleep replays."
+                 Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,4" />
+      <ItemsControl ItemsSource="{Binding Episodes}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate>
+            <Border BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1" Padding="0,5">
+              <StackPanel>
+                <WrapPanel>
+                  <TextBlock Text="{Binding When}" Style="{StaticResource Number}" Margin="0,0,14,0" />
+                  <TextBlock Text="{Binding Details}" Style="{StaticResource Muted}" FontFamily="{StaticResource NumberFont}" />
+                </WrapPanel>
+                <TextBlock Text="{Binding Text}" Foreground="{StaticResource TextBrush}" TextWrapping="Wrap" />
+              </StackPanel>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

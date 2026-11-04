@@ -96,6 +96,7 @@ modulation:
       - { substance: ACh,  emax: 0.5 }
       - { substance: DA,   emax: 0.5 }
       - { substance: NE,   emax: 0.5 }
+      - { substance: CORT, emax: -0.5 }   # ours, not in spec: stress weakens encoding (docs/memory.md)
     memory_noise:
       - { substance: NE,   emax: 0.5 }
     memory_retrieval_threshold:
@@ -182,12 +183,33 @@ llm:
 dreams:
   seed_min: 3
   seed_max: 5
-  detension: 0.2              # each fragment used as a seed loses this share of its emotional tag
+  detension: 0.2              # each episode used as a seed loses this share of its emotional tag
   seconds_per_token: 2        # one dream token per 2 seconds of REM
   settle_seconds: 30          # ours, not in spec: start once REM chemistry has settled, so T comes out near 1.0
   max_tokens: 1200            # ours, not in spec: the longest REM (about 40 minutes) needs about 1100
-  tag_floor: 0.05             # ours, not in spec: calm memories can still be dreamed, just rarely
-  fragments_kept: 100         # ours, not in spec: recent memory until ACT-R exists
   journal_kept: 50            # ours, not in spec
   joiner: ", and then"        # ours, not in spec: links dream segments and invites the next one (D-31)
   segment_tokens: 120         # ours, not in spec: longest single segment before the dream re-seeds itself
+
+# ACT-R declarative memory (docs/memory.md). Time is seconds of the brain clock.
+memory:
+  decay: 0.5                  # ACT-R d
+  spreading: 2.0              # ours: W, the most a perfectly matching cue adds
+  cosine_floor: 0.7           # ours: a cue below this adds nothing. Measured with the classification prefix: unrelated 0.54 to 0.68, related 0.77 to 0.87
+  noise: 0.25                 # ACT-R s at baseline
+  threshold: -3.0             # ours: tau at baseline
+  gain: 4                     # ours: m_k is small, about +-0.12 at twice baseline
+  recall_count: 4             # ours: k facts at most per message
+  duplicate_cosine: 0.97      # ours: restatements measured 0.984 to 0.990, facts that differ in a value 0.918 to 0.956
+  familiarity_damping: 0.5    # ours: S * (1 - damping * familiarity)
+  replay_minutes: 5           # ours: one NREM replay every this long
+  replay_weight: 0.5          # ours: presentation weight of one replay, before DA
+  n2_replay_rate: 0.3         # spec: replay in N2 at 0.3x
+  salience_decay: 0.7         # ours: salience kept after a replay
+  archive_limit: 5000         # ours: above this, the weakest chunks are archived
+  extraction_temperature: 0.2 # ours
+  extraction_tokens: 150      # ours
+  extraction_reply_chars: 200 # ours: the 0.8B model loses the user's facts in a long reply, so it sees only the start
+  facts_per_episode: 5        # ours
+  fact_min_chars: 3           # ours
+  fact_max_chars: 200         # ours

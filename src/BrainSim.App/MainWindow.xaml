@@ -88,6 +88,9 @@
             <ad:LayoutAnchorable Title="Dreams" ContentId="dreams" CanClose="False" CanHide="False">
               <views:DreamsView x:Name="DreamsPanel" />
             </ad:LayoutAnchorable>
+            <ad:LayoutAnchorable Title="Memory" ContentId="memory" CanClose="False" CanHide="False">
+              <views:MemoryView x:Name="MemoryPanel" />
+            </ad:LayoutAnchorable>
             <ad:LayoutAnchorable Title="Lab" ContentId="lab" CanClose="False" CanHide="False">
               <views:LabView x:Name="LabPanel" />
             </ad:LayoutAnchorable>

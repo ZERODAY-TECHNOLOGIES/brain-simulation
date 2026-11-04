@@ -3,6 +3,7 @@ using BrainSim.Engine.Appraisal;
 using BrainSim.Engine.Config;
 using BrainSim.Engine.Journal;
 using BrainSim.Engine.Llm;
+using BrainSim.Engine.Memory;
 
 namespace BrainSim.Engine.Hosting;
 
@@ -36,6 +37,7 @@ public sealed class EngineHost : IAsyncDisposable
     public EventLog Events { get; private set; } = new();
     public string? JournalPath { get; private set; }
     public string CheckpointPath => Path.Combine(_dataDirectory, "checkpoint.json");
+    public string MemoryPath => Path.Combine(_dataDirectory, "memory.bin");
 
     /// <summary>The conversation restored from the checkpoint, from sessions before this one.</summary>
     public IReadOnlyList<ChatMessage> EarlierMessages { get; private set; } = [];
@@ -43,7 +45,8 @@ public sealed class EngineHost : IAsyncDisposable
     /// <summary>A reply is streaming. Read from the UI thread, so it is only a hint.</summary>
     public bool IsGenerating => Agent.Brain.IsGenerating;
 
-    public event Action<string, AppraisalSignals, SamplingParameters>? Appraised;
+    /// <summary>The message, its appraisal, the sampling for the reply and the facts memory recalled for it.</summary>
+    public event Action<string, AppraisalSignals, SamplingParameters, IReadOnlyList<string>>? Appraised;
     public event Action<string>? TokenReceived;
     public event Action<AgentReply>? Replied;
     public event Action<string>? Failed;
@@ -56,6 +59,15 @@ public sealed class EngineHost : IAsyncDisposable
         JournalPath = Path.Combine(journalDirectory, $"session-{stamp}.parquet");
         _journal = await TickJournal.CreateAsync(JournalPath, Agent.Brain.Modulation.Names);
         Events = new EventLog(EventsPath(JournalPath));
+
+        // Memory before the checkpoint: a checkpoint from before Phase 7 has no memory.bin, and restoring it
+        // imports its dream fragments as episodes, which loading afterwards would wipe.
+        var hadMemory = File.Exists(MemoryPath);
+        Agent.Memory.Load(MemoryFile.Load(MemoryPath));
+        if (hadMemory && !File.Exists(MemoryPath))
+        {
+            Report("memory.bin could not be read. It was set aside as memory.bin.bad and memory starts empty.");
+        }
 
         if (await AgentCheckpoint.LoadAsync(CheckpointPath) is { } checkpoint)
         {
@@ -71,7 +83,7 @@ public sealed class EngineHost : IAsyncDisposable
         }
 
         Agent.Brain.Ticked += OnTicked;
-        Agent.Dreamer.Started += d => Log(EventKinds.Sleep, $"Dream started from {d.Seeds.Count} fragments");
+        Agent.Dreamer.Started += d => Log(EventKinds.Sleep, $"Dream started from {d.Seeds.Count} memories");
         Agent.Dreamer.Finished += d => Log(EventKinds.Dream, d.Text, new()
         {
             ["seeds"] = d.Seeds.Count,
@@ -83,6 +95,17 @@ public sealed class EngineHost : IAsyncDisposable
         });
         Agent.Dreamer.Failed += Report;
         Agent.Brain.Transition += t => Log(EventKinds.Sleep, $"{t.Kind} from {t.From}");
+        Agent.Memory.Replayed += e => Log(EventKinds.Memory, $"Replayed episode {e.Id}");
+        Agent.MemoryFailed += Report;
+        Agent.FactsLearned += facts =>
+        {
+            foreach (var fact in facts)
+            {
+                Log(EventKinds.Memory, $"Learned: {fact.Text}");
+            }
+
+            SaveMemory();
+        };
         _loop = Task.Run(() => LoopAsync(_stop.Token));
     }
 
@@ -159,7 +182,9 @@ public sealed class EngineHost : IAsyncDisposable
 
         if (_journal is not null)
         {
+            await Agent.FinishLearningAsync(TimeSpan.FromSeconds(5)); // the last turn's facts, often still being extracted
             await Agent.Checkpoint().SaveAsync(CheckpointPath);
+            SaveMemory();
             await _journal.DisposeAsync();
         }
 
@@ -204,7 +229,7 @@ public sealed class EngineHost : IAsyncDisposable
                 message,
                 token => TokenReceived?.Invoke(token),
                 cancellationToken,
-                (signals, sampling) =>
+                (signals, sampling, recalled) =>
                 {
                     var values = new Dictionary<string, double>
                     {
@@ -212,6 +237,7 @@ public sealed class EngineHost : IAsyncDisposable
                         ["A"] = signals.Threat,
                         ["W"] = signals.Warmth,
                         ["delta"] = signals.RewardError,
+                        ["M"] = recalled.Count,
                     };
                     if (signals.Reward is { } r)
                     {
@@ -219,7 +245,12 @@ public sealed class EngineHost : IAsyncDisposable
                     }
 
                     Log(EventKinds.User, message, values);
-                    Appraised?.Invoke(message, signals, sampling);
+                    if (recalled.Count > 0)
+                    {
+                        Log(EventKinds.Memory, $"Recalled {recalled.Count} {(recalled.Count == 1 ? "fact" : "facts")}: {string.Join("; ", recalled)}");
+                    }
+
+                    Appraised?.Invoke(message, signals, sampling, recalled);
                 });
 
             Log(EventKinds.Agent, reply.Text, new()
@@ -231,6 +262,7 @@ public sealed class EngineHost : IAsyncDisposable
             });
             Replied?.Invoke(reply);
             await Agent.Checkpoint().SaveAsync(CheckpointPath, cancellationToken);
+            SaveMemory(); // the episode now; its facts when extraction lands (FactsLearned)
         }
         catch (HttpRequestException e)
         {
@@ -245,6 +277,9 @@ public sealed class EngineHost : IAsyncDisposable
         _journal?.Append(record);
         DrainCommands();
     }
+
+    // ponytail: rewrites the whole file each time, about 15 MB at the 5000 chunk limit; append-only if that stalls the loop.
+    private void SaveMemory() => MemoryFile.Save(MemoryPath, Agent.Memory.Snapshot());
 
     private void DrainCommands()
     {

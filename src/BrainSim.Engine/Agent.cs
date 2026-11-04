@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Text;
 using System.Text.Json;
 using BrainSim.Engine.Appraisal;
@@ -5,10 +6,13 @@ using BrainSim.Engine.Config;
 using BrainSim.Engine.Dreams;
 using BrainSim.Engine.Effectors;
 using BrainSim.Engine.Llm;
+using BrainSim.Engine.Memory;
 
 namespace BrainSim.Engine;
 
-public sealed record AgentReply(string Text, AppraisalSignals Signals, SamplingParameters Sampling, int Tokens);
+/// <summary>One reply, with the appraisal of the message it answers and the facts memory brought back for it.</summary>
+public sealed record AgentReply(
+    string Text, AppraisalSignals Signals, SamplingParameters Sampling, int Tokens, IReadOnlyList<string> Recalled, double Familiarity);
 
 /// <summary>Everything needed to pick a session back up: brain, appraisal, conversation and dreams.</summary>
 public sealed record AgentCheckpoint(BrainCheckpoint Brain, AppraiserState Appraisal, List<ChatMessage> History, DreamState? Dreams = null)
@@ -39,6 +43,9 @@ public sealed class Agent
     private const int MaxHistory = 400;
     private readonly List<ChatMessage> _history = [];
 
+    // Facts extracted in the background, applied on the engine loop at the next tick (docs/memory.md "Encoding").
+    private readonly ConcurrentQueue<(int EpisodeId, IReadOnlyList<string> Facts, float[][] Embeddings, MemoryModulation Encoding)> _learned = new();
+
     public Agent(EngineConfig config, LmStudioClient llm, IReadOnlyDictionary<string, LinearProbe> probes, Func<DateTime> clock)
     {
         _config = config;
@@ -46,21 +53,37 @@ public sealed class Agent
         _clock = clock;
         Brain = new Brain(config, clock());
         Appraiser = new Appraiser(config.Appraisal, probes);
-        Dreamer = new Dreamer(config, llm);
-        Brain.Ticked += (brain, _) => Dreamer.OnTick(brain);
+        Memory = new DeclarativeMemory(config.Memory);
+        Dreamer = new Dreamer(config, llm, Memory);
+        Brain.Ticked += (brain, _) =>
+        {
+            ApplyLearnedFacts();
+            Memory.OnTick(brain);
+            Dreamer.OnTick(brain);
+        };
         Brain.Transition += Dreamer.OnTransition;
     }
 
     public Brain Brain { get; }
     public Appraiser Appraiser { get; }
     public Dreamer Dreamer { get; }
+    public DeclarativeMemory Memory { get; }
+
+    /// <summary>The fact extraction started after the last reply. Tests await it.</summary>
+    public Task? Extraction { get; private set; }
+
+    /// <summary>Raised on the engine loop when extracted facts have been stored or have strengthened existing ones.</summary>
+    public event Action<IReadOnlyList<Chunk>>? FactsLearned;
+
+    /// <summary>Raised from the background when fact extraction fails. The episode stays in memory regardless.</summary>
+    public event Action<string>? MemoryFailed;
     public IReadOnlyList<ChatMessage> History => _history;
 
     public async Task<AgentReply> SendAsync(
         string message,
         Action<string>? onToken = null,
         CancellationToken cancellationToken = default,
-        Action<AppraisalSignals, SamplingParameters>? onAppraised = null)
+        Action<AppraisalSignals, SamplingParameters, IReadOnlyList<string>>? onAppraised = null)
     {
         // 1. Catch up idle time, sleeping through it if the conditions were met. The message is light and wakes the brain.
         var now = _clock();
@@ -73,16 +96,58 @@ public sealed class Agent
             _history.Add(ChatMessage.System($"You were dreaming when this message woke you, and you still remember the dream: {dream}"));
         }
 
-        // 2 to 4. Appraise the message and schedule the impulses.
-        var embedding = (await _llm.EmbedAsync([message], cancellationToken))[0];
-        var signals = Appraiser.Appraise(embedding, hasPreviousResponse: _history.Any(m => m.Role == "assistant"));
+        // 2 to 4. Appraise the message and schedule the impulses. Familiar messages are less surprising, and memory
+        // recalls what the message cues. Without an embedding there is nothing to appraise or recall with.
+        float[]? embedding = null;
+        try
+        {
+            embedding = (await _llm.EmbedAsync([message], cancellationToken))[0];
+        }
+        catch (HttpRequestException)
+        {
+            // The embedding model is gone: answer anyway, with a neutral appraisal and no memory this turn.
+        }
+
+        var modulation = MemoryModulation.From(Brain.Modulation);
+        var familiarity = 0.0;
+        IReadOnlyList<Recall> recalled = [];
+        AppraisalSignals signals;
+        if (embedding is not null)
+        {
+            familiarity = Memory.Familiarity(embedding, modulation, Brain.Now);
+            signals = Appraiser.Appraise(embedding, hasPreviousResponse: _history.Any(m => m.Role == "assistant"));
+            signals = signals with { Surprise = signals.Surprise * (1 - _config.Memory.FamiliarityDamping * familiarity) };
+            recalled = Memory.RecallFacts(embedding, modulation, Brain.Now);
+        }
+        else
+        {
+            signals = new AppraisalSignals(0, null, 0, 0, 0, Appraiser.ExpectedReward);
+        }
+
         Appraiser.Release(signals, Brain.Chemistry);
+        IReadOnlyList<string> remembered = [.. recalled.Select(r => r.Chunk.Text)];
 
         // 5. Reduced mode: sampling is fixed from the chemistry at the start of the response.
         var sampling = Sampling.Compute(Brain.Chemistry.C, _config.Sampling);
-        onAppraised?.Invoke(signals, sampling);
+        onAppraised?.Invoke(signals, sampling, remembered);
         _history.Add(ChatMessage.User(message));
-        List<ChatMessage> request = [ChatMessage.System(_config.Llm.SystemPrompt), .. _history.TakeLast(_config.Llm.HistoryMessages)];
+
+        // One system message, first: chat templates like Qwen's reject a system message anywhere else (D-34).
+        // Recalled facts ride along with this request only; they never enter the history, so they do not pile up.
+        // System notes in the history (a dream broken off by this message) are folded in after them.
+        var window = _history.TakeLast(_config.Llm.HistoryMessages).ToList();
+        var system = new StringBuilder(_config.Llm.SystemPrompt);
+        if (remembered.Count > 0)
+        {
+            system.Append("\n\nThings you remember:\n").AppendJoin("\n", remembered.Select(f => "- " + f));
+        }
+
+        foreach (var note in window.Where(m => m.Role == "system"))
+        {
+            system.Append("\n\n").Append(note.Content);
+        }
+
+        List<ChatMessage> request = [ChatMessage.System(system.ToString()), .. window.Where(m => m.Role != "system")];
 
         // 6 to 8. One tick per streamed token.
         var text = new StringBuilder();
@@ -115,9 +180,63 @@ public sealed class Agent
         Brain.OnResponseFinished(tokens);
         Appraiser.LearnExpectedReward();
 
-        // The turn becomes a fragment of recent memory, tagged with the stress and alertness it was lived in.
-        Dreamer.Remember(message + "\n" + text, Brain.Chemistry.C, Brain.Now);
-        return new AgentReply(text.ToString(), signals, sampling, tokens);
+        // The turn becomes an episode, tagged with the stress and alertness it was lived in (dreams draw on the tag),
+        // and its facts are extracted in the background.
+        var encoding = MemoryModulation.From(Brain.Modulation);
+        var reply = text.ToString();
+        var episode = Memory.AddEpisode(message + "\n" + reply, embedding, Brain.Chemistry.C, encoding, Brain.Now);
+
+        // The extractor sees who said what, and only the start of the reply: qwen3.5-0.8b otherwise lists facts from a
+        // long reply and drops the user's own (extraction_reply_chars).
+        var exchange = $"User: {message}\nAssistant: {reply[..Math.Min(reply.Length, _config.Memory.ExtractionReplyChars)]}";
+        Extraction = Task.Run(() => ExtractAsync(episode, exchange, encoding));
+        return new AgentReply(reply, signals, sampling, tokens, remembered, familiarity);
+    }
+
+    private async Task ExtractAsync(Chunk episode, string exchange, MemoryModulation encoding)
+    {
+        try
+        {
+            var facts = await FactExtractor.ExtractAsync(_llm, exchange, _config.Memory, CancellationToken.None);
+            if (facts.Count > 0)
+            {
+                var embeddings = await _llm.EmbedAsync(facts);
+                _learned.Enqueue((episode.Id, facts, embeddings, encoding));
+            }
+        }
+        catch (HttpRequestException e)
+        {
+            MemoryFailed?.Invoke($"Facts could not be extracted from a turn: {e.Message}");
+        }
+    }
+
+    /// <summary>
+    /// On close: waits up to <paramref name="timeout"/> for the last extraction and stores its facts, which would
+    /// otherwise wait for a tick that never comes. Call once the engine loop has stopped.
+    /// </summary>
+    public async Task FinishLearningAsync(TimeSpan timeout)
+    {
+        if (Extraction is { } extraction)
+        {
+            await Task.WhenAny(extraction, Task.Delay(timeout));
+        }
+
+        ApplyLearnedFacts();
+    }
+
+    /// <summary>On the engine loop: store the facts extraction produced, with the chemistry of their episode.</summary>
+    private void ApplyLearnedFacts()
+    {
+        while (_learned.TryDequeue(out var batch))
+        {
+            var learned = new List<Chunk>();
+            for (var i = 0; i < batch.Facts.Count; i++)
+            {
+                learned.Add(Memory.AddOrStrengthenFact(batch.Facts[i], batch.Embeddings[i], batch.EpisodeId, batch.Encoding, Brain.Now));
+            }
+
+            FactsLearned?.Invoke(learned);
+        }
     }
 
     /// <summary>12. Snapshot for the next session.</summary>

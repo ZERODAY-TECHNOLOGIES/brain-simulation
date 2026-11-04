@@ -305,6 +305,47 @@ See [conventions.md](conventions.md#git).
   scroll viewers in chat bubbles, and a reply re-renders cheaply on every streamed token.
   Unclosed marks stay as plain text until they close.
 
+### D-33. ACT-R memory, and what calibration changed
+- **Date:** 2026-11-04
+- **Context:** Phase 7 builds the memory the spec leaves to "ACT-R", fed by E4. The design is
+  in [memory.md](memory.md); this entry records the values that real use changed.
+- **Decision:**
+  - Recall and familiarity are cue driven: only chunks the message points at (`S > 0`)
+    compete. Otherwise a fresh fact clears the threshold on base level alone, comes back for
+    every message, and each recall strengthens it again, so it never fades.
+  - `cosine_floor` is 0.7, not 0.5. The app embeds with nomic's `classification: ` prefix,
+    which the probes need, and that lifts every cosine: unrelated texts measured 0.54 to 0.68,
+    related ones 0.77 to 0.87. At 0.5 every fact was recalled for every message.
+  - The extractor gets `User: <message>` and `Assistant: <first 200 characters of the reply>`.
+    Given the bare turn, qwen3.5-0.8b listed facts from the reply and kept the user's own in
+    0 of 5 tries; labeled and cut, in 5 of 5, and it words them as "the user's sister"
+    rather than "your sister".
+  - `duplicate_cosine` is 0.97, not 0.9, for the same reason: restatements measured 0.984 to
+    0.990, but facts that differ in a value ("34 years old" and "52 years old") 0.918 to 0.956.
+    At 0.9 a correction was merged into the old fact, which then came back stronger.
+  - CORT weakens encoding (an extra `memory_encoding` entry, emax -0.5), so a fact told under
+    stress is not recalled later, as T7 asks.
+  - Dream seeds now come from memory episodes. The old fragment list is read once from a
+    Phase 6 checkpoint and becomes episodes without embeddings: dreamed, never recalled.
+- **Consequence:** T7 passes with fakes and against the real models (a fact told once is
+  recalled 25 turns later, out of the context). How well a reply uses a recalled fact is up
+  to the 0.8B model: in a live run it recalled the right fact and still answered with a
+  refusal it had given a turn before. The extractor also stores some of the agent's own
+  sentences as facts.
+
+### D-34. One system message, and LM Studio's streamed errors
+- **Date:** 2026-11-04
+- **Context:** Qwen's chat template raises "System message must be at the beginning" for any
+  later system message. LM Studio reports that, and any generation failing after the headers,
+  as an SSE `event: error` with HTTP 200. The client skipped it, so the reply read as empty.
+  Phase 6 was already hit: the dream note after a forced wake from REM is a system message in
+  the history, and every reply within 20 messages of it came back empty.
+- **Decision:** The request has one system message, first: the system prompt, then the
+  recalled facts, then any system notes in the history window, in order. The client raises
+  an `HttpRequestException` on an SSE error, for chat and for dreams.
+- **Consequence:** The fake LM Studio in the tests rejects a late system message the same way,
+  so a regression fails the suite instead of passing silently.
+
 ## Open
 
 No open questions right now.

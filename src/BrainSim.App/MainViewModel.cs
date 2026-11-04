@@ -10,6 +10,7 @@ using BrainSim.Engine.Config;
 using BrainSim.Engine.Effectors;
 using BrainSim.Engine.Hosting;
 using BrainSim.Engine.Journal;
+using BrainSim.Engine.Memory;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
@@ -42,6 +43,15 @@ public sealed record Marker(long Tick, Brush Brush);
 
 /// <summary>One dream journal entry as shown in the Dreams panel.</summary>
 public sealed record DreamItem(string When, string Details, string Seeds, string Text);
+
+/// <summary>
+/// One fact in the Memory panel. <paramref name="Level"/> is its base level on a 0 to 6 scale with the retrieval
+/// threshold at 3, for a LevelBar; a saved session has no base levels, so <paramref name="HasLevel"/> is false there.
+/// </summary>
+public sealed record FactItem(string Text, string Details, double Level, bool HasLevel, bool RecalledNow);
+
+/// <summary>One episode in the Memory panel.</summary>
+public sealed record EpisodeItem(string When, string Text, string Details);
 
 /// <summary>
 /// The app state. Everything is drawn "as of" <see cref="CursorTick"/>: live, the cursor follows the newest tick;
@@ -77,14 +87,27 @@ public sealed partial class MainViewModel : ObservableObject
         Gains = [.. config.Appraisal.Gains.SelectMany(g => g.Value.Select(s => new GainRow(g.Key, Substances.Parse(s.Key), s.Value, this)))];
         Channels = [.. host.Agent.Brain.Modulation.Names.Select(n => new ChannelRow(n))];
 
-        host.Appraised += (_, signals, _) => _dispatcher.BeginInvoke(() =>
+        host.Appraised += (_, signals, _, recalled) => _dispatcher.BeginInvoke(() =>
         {
             _streaming = "";
             _lastThreat = (signals.Threat, DateTime.UtcNow);
+            _lastRecalled = recalled;
+            if (recalled.Count > 0)
+            {
+                _memoryPulseAt = DateTime.UtcNow;
+            }
+
             RebuildChat(force: true);
         });
         host.TokenReceived += token => _dispatcher.BeginInvoke(() => AppendToken(token));
-        host.Replied += _ => _dispatcher.BeginInvoke(() => { _streaming = null; RebuildChat(force: true); });
+        host.Replied += reply => _dispatcher.BeginInvoke(() =>
+        {
+            _streaming = null;
+            _lastFamiliarity = reply.Familiarity;
+            _memoryPulseAt = DateTime.UtcNow; // the turn was just encoded as an episode
+            RebuildChat(force: true);
+        });
+        host.Agent.FactsLearned += _ => _dispatcher.BeginInvoke(() => _memoryPulseAt = DateTime.UtcNow);
         host.Failed += _ => _dispatcher.BeginInvoke(() => { _streaming = null; RebuildChat(force: true); });
 
         _timer = new DispatcherTimer(TimeSpan.FromMilliseconds(33), DispatcherPriority.Render, (_, _) => OnTimer(), _dispatcher);
@@ -125,6 +148,8 @@ public sealed partial class MainViewModel : ObservableObject
 
     public ObservableCollection<ChatItem> Chat { get; } = [];
     public ObservableCollection<DreamItem> Dreams { get; } = [];
+    public ObservableCollection<FactItem> Facts { get; } = [];
+    public ObservableCollection<EpisodeItem> Episodes { get; } = [];
     public ObservableCollection<SubstanceRow> SubstanceRows { get; }
     /// <summary>W as a 10 by 10 grid, rows are the source, columns the target, in substance order.</summary>
     public IReadOnlyList<WCell> WCells { get; }
@@ -174,6 +199,8 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty] private bool _dreaming;
     [ObservableProperty] private string _currentDream = "";
     [ObservableProperty] private string _currentDreamSeeds = "";
+    [ObservableProperty] private string _memoryHeader = "";
+    [ObservableProperty] private bool _memoryEmpty = true;
     [ObservableProperty] private string _dreamsEmptyText = "No dreams yet. They come in REM sleep, once there are memories to dream about.";
 
     public bool CanEdit => !IsReplayFile;
@@ -209,7 +236,7 @@ public sealed partial class MainViewModel : ObservableObject
                 Dreams.Add(new DreamItem(
                     $"{e.Time:ddd HH:mm}",
                     $"{Get(v, "minutes", "0.0")} min   {(v.GetValueOrDefault("interrupted") > 0 ? "woken from it" : "slept through")}   NE {Get(v, "NE")}   5-HT {Get(v, "5-HT")}   ACh {Get(v, "ACh")}",
-                    $"{Get(v, "seeds", "0")} seed fragments",
+                    $"{Get(v, "seeds", "0")} seed memories",
                     e.Text));
             }
 
@@ -240,6 +267,78 @@ public sealed partial class MainViewModel : ObservableObject
     {
         var line = fragment.Split('\n')[0];
         return line.Length > 60 ? line[..57] + "..." : line;
+    }
+
+    private IReadOnlyList<string> _lastRecalled = [];
+    private double _lastFamiliarity;
+    private DateTime _memoryPulseAt = DateTime.MinValue;
+    private int _memoryEventCount = -1;
+
+    /// <summary>1 right after a turn is encoded or facts are learned or recalled, fading to 0 over 2 s. Lights the hippocampus.</summary>
+    public double MemoryPulse() => IsLive ? Math.Max(0, 1 - (DateTime.UtcNow - _memoryPulseAt).TotalSeconds / 2) : 0;
+
+    /// <summary>
+    /// Live: from the memory itself, facts by base level (activation without a cue) against tau. A saved session:
+    /// the facts learned and recalled, from its events journal.
+    /// </summary>
+    private void RefreshMemory()
+    {
+        if (IsReplayFile)
+        {
+            var events = Events.Snapshot().Where(e => e.Kind == EventKinds.Memory).ToList();
+            if (events.Count == _memoryEventCount)
+            {
+                return;
+            }
+
+            _memoryEventCount = events.Count;
+            var recalls = events.Where(e => e.Text.StartsWith("Recalled ", StringComparison.Ordinal) && e.Text.Contains(": "))
+                .SelectMany(e => e.Text[(e.Text.IndexOf(": ", StringComparison.Ordinal) + 2)..].Split("; "))
+                .CountBy(f => f).ToDictionary();
+            var learned = events.Where(e => e.Text.StartsWith("Learned: ", StringComparison.Ordinal))
+                .DistinctBy(e => e.Text).Reverse().ToList();
+            Facts.Clear();
+            Episodes.Clear();
+            foreach (var e in learned)
+            {
+                var text = e.Text["Learned: ".Length..];
+                Facts.Add(new FactItem(text, $"learned {e.Time:ddd HH:mm}   recalled {recalls.GetValueOrDefault(text)}x", 0, false, false));
+            }
+
+            MemoryHeader = $"Saved session: {learned.Count} facts learned and {recalls.Values.Sum()} recalls, from its events journal";
+            MemoryEmpty = Facts.Count == 0;
+            return;
+        }
+
+        _memoryEventCount = -1;
+        var memory = _host.Agent.Memory;
+        var chunks = memory.Snapshot();
+        var now = Frame?.Time ?? _host.Agent.Brain.Now;
+        double Channel(string name) => Channels.FirstOrDefault(c => c.Name == name)?.Value ?? 0;
+        var m = new MemoryModulation(Channel("memory_encoding"), Channel("memory_noise"), Channel("memory_retrieval_threshold"), Channel("memory_consolidation"));
+        var tau = memory.Threshold(m);
+
+        var facts = chunks.Where(c => c is { Kind: ChunkKind.Fact, Archived: false }).ToList();
+        var episodes = chunks.Where(c => c is { Kind: ChunkKind.Episode, Archived: false }).ToList();
+        static string Count(int n, string noun) => $"{n} {noun}{(n == 1 ? "" : "s")}";
+        MemoryHeader = $"{Count(facts.Count, "fact")}   {Count(episodes.Count, "episode")}   {chunks.Count(c => c.Archived)} archived   "
+            + $"tau {tau:0.00}   noise {memory.NoiseScale(m):0.00}   familiarity {_lastFamiliarity:0.00}";
+
+        // ponytail: rebuilt every 500 ms and capped at 100 facts and 50 episodes; virtualize if people want them all.
+        Facts.Clear();
+        foreach (var (c, b) in facts.Select(c => (c, memory.BaseLevel(c, now))).OrderByDescending(x => x.Item2).Take(100))
+        {
+            var recalled = c.LastRecalled is { } last ? $"recalled {c.Recalls}x, last {last:ddd HH:mm}" : "not recalled yet";
+            Facts.Add(new FactItem(c.Text, $"B {b:0.00}   {recalled}", Math.Clamp(b - tau + 3, 0, 6), true, _lastRecalled.Contains(c.Text)));
+        }
+
+        Episodes.Clear();
+        foreach (var c in episodes.OrderByDescending(c => c.Created).Take(50))
+        {
+            Episodes.Add(new EpisodeItem($"{c.Created:ddd HH:mm}", Short(c.Text), $"tag {c.Tag:0.00}   salience {c.Salience:0.00}"));
+        }
+
+        MemoryEmpty = chunks.Count == 0;
     }
 
     /// <summary>Threat A of the last live message, fading over about two seconds. Lights the amygdala.</summary>
@@ -428,6 +527,7 @@ public sealed partial class MainViewModel : ObservableObject
             OnPropertyChanged(nameof(Markers));
             RebuildChat(force: false);
             RefreshDreams();
+            RefreshMemory();
         }
     }
 
@@ -529,7 +629,8 @@ public sealed partial class MainViewModel : ObservableObject
     }
 
     private static string AppraisalDetail(Dictionary<string, double>? v) => v is null ? "" :
-        $"S {Get(v, "S")}   A {Get(v, "A")}   W {Get(v, "W")}   r {Get(v, "r")}   delta {Get(v, "delta")}";
+        $"S {Get(v, "S")}   A {Get(v, "A")}   W {Get(v, "W")}   r {Get(v, "r")}   delta {Get(v, "delta")}"
+        + (v.ContainsKey("M") ? $"   M {Get(v, "M", "0")}" : ""); // sessions before Phase 7 have no recall count
 
     private static string SamplingDetail(Dictionary<string, double>? v) => v is null ? "" :
         $"T {Get(v, "T")}   top-p {Get(v, "top_p")}   max {Get(v, "max_tokens", "0")}   {Get(v, "tokens", "0")} tokens";

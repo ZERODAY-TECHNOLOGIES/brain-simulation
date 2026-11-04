@@ -1,6 +1,8 @@
 using BrainSim.Engine.Appraisal;
 using BrainSim.Engine.Config;
+using BrainSim.Engine.Dreams;
 using BrainSim.Engine.Llm;
+using BrainSim.Engine.Memory;
 using BrainSim.Engine.Sleep;
 
 namespace BrainSim.Engine.Tests;
@@ -27,16 +29,19 @@ public class T9DreamTests
         var stressed = (double[])calm.Clone();
         stressed[(int)Substance.Norepinephrine] = 2.0;
         stressed[(int)Substance.Cortisol] = 1.5;
-        agent.Dreamer.Remember("the argument about the broken window", stressed, Night.AddHours(-5));
-        agent.Dreamer.Remember("someone shouting in the hallway", stressed, Night.AddHours(-4));
-        agent.Dreamer.Remember("a quiet walk by the lake", calm, Night.AddHours(-3));
-        agent.Dreamer.Remember("tea with a friend", calm, Night.AddHours(-2));
-        agent.Dreamer.Remember("reading about octopuses", calm, Night.AddHours(-1));
+        agent.Memory.AddEpisode("the argument about the broken window", null, stressed, default, Night.AddHours(-5));
+        agent.Memory.AddEpisode("someone shouting in the hallway", null, stressed, default, Night.AddHours(-4));
+        agent.Memory.AddEpisode("a quiet walk by the lake", null, calm, default, Night.AddHours(-3));
+        agent.Memory.AddEpisode("tea with a friend", null, calm, default, Night.AddHours(-2));
+        agent.Memory.AddEpisode("reading about octopuses", null, calm, default, Night.AddHours(-1));
 
         // ADO at its limit forces sleep on the next tick, and the dark window keeps it asleep until 07:00.
         agent.Brain.Chemistry[Substance.Adenosine] = config.Sleep.ForcedAdenosine;
         return (agent, fake, t => now = t);
     }
+
+    private static double[] Tags(Agent agent) =>
+        [.. agent.Memory.Snapshot().Where(c => c.Kind == ChunkKind.Episode).OrderBy(c => c.Id).Select(c => c.Tag)];
 
     [Fact]
     public void Emotional_tags_drop_only_on_nights_with_REM()
@@ -44,7 +49,7 @@ public class T9DreamTests
         var noRem = Config with { Sleep = Config.Sleep with { RemFractionStart = 0, RemFractionStep = 0 } };
         var (withRem, _, _) = Create(Config);
         var (withoutRem, _, _) = Create(noRem);
-        var before = withRem.Dreamer.Fragments.Select(f => f.Tag).ToArray();
+        var before = Tags(withRem);
 
         withRem.Brain.AdvanceTo(Night.AddHours(6.1));
         withoutRem.Brain.AdvanceTo(Night.AddHours(6.1));
@@ -53,7 +58,7 @@ public class T9DreamTests
         // fragments that lose 20% of their tag.
         Assert.Equal(4, withRem.Dreamer.Journal.Count);
         Assert.All(withRem.Dreamer.Journal, d => Assert.InRange(d.Seeds.Count, 3, 5));
-        var after = withRem.Dreamer.Fragments.Select(f => f.Tag).ToArray();
+        var after = Tags(withRem);
         Assert.True(after.Sum() < before.Sum() * 0.8);
         for (var i = 0; i < before.Length; i++)
         {
@@ -62,7 +67,7 @@ public class T9DreamTests
         }
 
         Assert.Empty(withoutRem.Dreamer.Journal);
-        Assert.Equal(before, withoutRem.Dreamer.Fragments.Select(f => f.Tag));
+        Assert.Equal(before, Tags(withoutRem));
     }
 
     [Fact]
@@ -125,5 +130,29 @@ public class T9DreamTests
         await agent.SendAsync("hello", cancellationToken: ct);
         var messages = llm.ChatRequests[^1].RootElement.GetProperty("messages").EnumerateArray();
         Assert.DoesNotContain(messages, m => m.GetProperty("content").GetString()!.Contains("dream"));
+    }
+
+    [Fact]
+    public async Task An_old_checkpoint_keeps_its_dream_fragments()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var fake = new FakeLmStudio(replyTokens: 40);
+        var client = new LmStudioClient(new HttpClient(fake) { BaseAddress = new Uri(Config.Llm.BaseUrl) }, Config.Llm);
+        var agent = new Agent(Config, client, new Dictionary<string, LinearProbe>(), () => Night);
+        string[] texts = ["a red kite over the field", "the train that never came", "my grandmother's kitchen"];
+
+        agent.Dreamer.Restore(new DreamState([.. texts.Select((t, i) => new Fragment(Night.AddHours(-3 + i), t, 0.5))], []));
+
+        var episodes = agent.Memory.Snapshot().Where(c => c.Kind == ChunkKind.Episode).ToList();
+        Assert.Equal(texts, episodes.Select(e => e.Text));
+        Assert.All(episodes, e => Assert.Null(e.Embedding));
+        Assert.All(episodes, e => Assert.Equal(0.5, e.Tag));
+        Assert.Empty(agent.Memory.RecallFacts([1, 0, 0, 0], default, Night));
+        Assert.Equal(0, agent.Memory.Familiarity([1, 0, 0, 0], default, Night));
+
+        agent.Brain.Chemistry[Substance.Adenosine] = Config.Sleep.ForcedAdenosine;
+        agent.Brain.AdvanceTo(Night.AddMinutes(81).AddSeconds(35));
+        await agent.Dreamer.Generation!.WaitAsync(TimeSpan.FromSeconds(10), ct);
+        Assert.All(agent.Dreamer.Current!.Seeds, seed => Assert.Contains(seed, texts));
     }
 }

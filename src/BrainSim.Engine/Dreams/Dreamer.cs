@@ -2,12 +2,13 @@ using System.Text;
 using BrainSim.Engine.Config;
 using BrainSim.Engine.Effectors;
 using BrainSim.Engine.Llm;
+using BrainSim.Engine.Memory;
 using BrainSim.Engine.Sleep;
 
 namespace BrainSim.Engine.Dreams;
 
 /// <summary>
-/// One conversation turn kept as recent memory until ACT-R exists (architecture.md "Dreams in reduced mode").
+/// A conversation turn as checkpoints before Phase 7 kept it for dreaming. Read only to migrate them into memory.
 /// <paramref name="Tag"/> is the emotional tag: how stressed and alert the brain was when it was encoded.
 /// </summary>
 public sealed record Fragment(DateTime Time, string Text, double Tag);
@@ -16,7 +17,7 @@ public sealed record Fragment(DateTime Time, string Text, double Tag);
 public sealed record Dream(DateTime Start, DateTime End, IReadOnlyList<string> Seeds, double[] Chemistry, string Text, bool Interrupted);
 
 /// <summary>
-/// Dreams in REM (spec: "Visele (REM)"). Once REM chemistry has settled, 3 to 5 recent fragments are picked in
+/// Dreams in REM (spec: "Visele (REM)"). Once REM chemistry has settled, 3 to 5 memory episodes are picked in
 /// proportion to their emotional tag, shuffled into a prompt with no instructions, and the LLM continues it.
 /// Tokens are revealed at one per 2 seconds of REM, so a 9 minute REM gives about 270 tokens. Each seed loses
 /// 20% of its tag (emotional detensioning). A forced wake from REM leaves the dream in the wake-up context.
@@ -26,8 +27,8 @@ public sealed class Dreamer
     private readonly DreamConfig _config;
     private readonly SamplingConfig _sampling;
     private readonly LmStudioClient _llm;
+    private readonly DeclarativeMemory _memory;
     private readonly Random _random = new(7);
-    private readonly List<Fragment> _fragments = [];
     private IReadOnlyList<Dream> _journal = []; // replaced, never mutated, so the UI thread can read it any time
     private readonly Lock _gate = new();
     private readonly List<string> _generated = [];
@@ -38,14 +39,14 @@ public sealed class Dreamer
     private CancellationTokenSource? _cancel;
     private string? _wakeMemory;
 
-    public Dreamer(EngineConfig config, LmStudioClient llm)
+    public Dreamer(EngineConfig config, LmStudioClient llm, DeclarativeMemory memory)
     {
         _config = config.Dreams;
         _sampling = config.Sampling;
         _llm = llm;
+        _memory = memory;
     }
 
-    public IReadOnlyList<Fragment> Fragments => _fragments;
     public IReadOnlyList<Dream> Journal => _journal;
 
     /// <summary>The dream being generated. A class, so the UI thread always reads a whole one.</summary>
@@ -67,19 +68,6 @@ public sealed class Dreamer
     public event Action<Dream>? Started;
     public event Action<Dream>? Finished;
     public event Action<string>? Failed;
-
-    /// <summary>Stores a turn as a fragment. Tag = floor + (NE - 1)+ + (CORT - 1)+ at encoding (spec: CORT and NE).</summary>
-    public void Remember(string text, IReadOnlyList<double> c, DateTime now)
-    {
-        var tag = _config.TagFloor
-            + Math.Max(0, c[(int)Substance.Norepinephrine] - 1)
-            + Math.Max(0, c[(int)Substance.Cortisol] - 1);
-        _fragments.Add(new Fragment(now, text, tag));
-        if (_fragments.Count > _config.FragmentsKept)
-        {
-            _fragments.RemoveAt(0);
-        }
-    }
 
     /// <summary>The interrupted dream to bring into the wake-up context, once.</summary>
     public string? TakeWakeMemory()
@@ -127,18 +115,21 @@ public sealed class Dreamer
         }
     }
 
-    public DreamState Save() => new([.. _fragments], [.. _journal]);
+    public DreamState Save() => new(null, [.. _journal]);
 
     public void Restore(DreamState? state)
     {
-        _fragments.Clear();
-        _fragments.AddRange(state?.Fragments ?? []);
+        if (state?.Fragments is { Count: > 0 } old)
+        {
+            _memory.Import(old); // a checkpoint from before Phase 7: its dream fragments become episodes
+        }
+
         _journal = [.. state?.Journal ?? []];
     }
 
     private void Begin(Brain brain)
     {
-        var seeds = PickSeeds();
+        var seeds = _memory.DrawByTag(_random.Next(_config.SeedMin, _config.SeedMax + 1), _random, _config.Detension);
         if (seeds.Count == 0)
         {
             return; // nothing to dream about yet
@@ -266,35 +257,6 @@ public sealed class Dreamer
         return dream;
     }
 
-    /// <summary>Weighted draw without replacement; each pick loses <c>detension</c> of its tag.</summary>
-    private List<string> PickSeeds()
-    {
-        var count = Math.Min(_fragments.Count, _random.Next(_config.SeedMin, _config.SeedMax + 1));
-        var pool = Enumerable.Range(0, _fragments.Count).ToList();
-        var seeds = new List<string>(count);
-        for (var n = 0; n < count; n++)
-        {
-            var total = pool.Sum(i => _fragments[i].Tag);
-            var roll = _random.NextDouble() * total;
-            var pick = pool[^1];
-            foreach (var i in pool)
-            {
-                roll -= _fragments[i].Tag;
-                if (roll <= 0)
-                {
-                    pick = i;
-                    break;
-                }
-            }
-
-            pool.Remove(pick);
-            seeds.Add(_fragments[pick].Text);
-            _fragments[pick] = _fragments[pick] with { Tag = _fragments[pick].Tag * (1 - _config.Detension) };
-        }
-
-        return seeds;
-    }
-
     private string RevealedText()
     {
         lock (_gate)
@@ -311,4 +273,5 @@ public sealed class Dreamer
 }
 
 /// <summary>The dream part of a checkpoint.</summary>
-public sealed record DreamState(List<Fragment> Fragments, List<Dream> Journal);
+/// <remarks><paramref name="Fragments"/> is only read, to migrate checkpoints from before Phase 7; it is saved as null.</remarks>
+public sealed record DreamState(List<Fragment>? Fragments, List<Dream> Journal);

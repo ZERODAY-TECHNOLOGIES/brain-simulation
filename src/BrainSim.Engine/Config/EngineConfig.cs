@@ -18,6 +18,7 @@ public sealed record EngineConfig
     public LlmConfig Llm { get; init; } = new();
     public SamplingConfig Sampling { get; init; } = new();
     public DreamConfig Dreams { get; init; } = new();
+    public MemoryConfig Memory { get; init; } = new();
 
     public static EngineConfig LoadDefault() => Load(Path.Combine(AppContext.BaseDirectory, "config.yaml"));
 
@@ -140,6 +141,30 @@ public sealed record AppraisalConfig
     public Dictionary<string, Dictionary<string, double>> Gains { get; init; } = [];
 }
 
+public sealed record MemoryConfig
+{
+    public double Decay { get; init; } = 0.5;
+    public double Spreading { get; init; } = 2.0;
+    public double CosineFloor { get; init; } = 0.7;
+    public double Noise { get; init; } = 0.25;
+    public double Threshold { get; init; } = -3.0;
+    public double Gain { get; init; } = 4;
+    public int RecallCount { get; init; } = 4;
+    public double DuplicateCosine { get; init; } = 0.97;
+    public double FamiliarityDamping { get; init; } = 0.5;
+    public double ReplayMinutes { get; init; } = 5;
+    public double ReplayWeight { get; init; } = 0.5;
+    public double N2ReplayRate { get; init; } = 0.3;
+    public double SalienceDecay { get; init; } = 0.7;
+    public int ArchiveLimit { get; init; } = 5000;
+    public double ExtractionTemperature { get; init; } = 0.2;
+    public int ExtractionTokens { get; init; } = 150;
+    public int ExtractionReplyChars { get; init; } = 200;
+    public int FactsPerEpisode { get; init; } = 5;
+    public int FactMinChars { get; init; } = 3;
+    public int FactMaxChars { get; init; } = 200;
+}
+
 public sealed record DreamConfig
 {
     public int SeedMin { get; init; } = 3;
@@ -148,8 +173,6 @@ public sealed record DreamConfig
     public double SecondsPerToken { get; init; } = 2;
     public double SettleSeconds { get; init; } = 30;
     public int MaxTokens { get; init; } = 1200;
-    public double TagFloor { get; init; } = 0.05;
-    public int FragmentsKept { get; init; } = 100;
     public int JournalKept { get; init; } = 50;
     public string Joiner { get; init; } = ", and then";
     public int SegmentTokens { get; init; } = 120;

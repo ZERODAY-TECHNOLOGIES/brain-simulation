@@ -57,6 +57,32 @@ public class LmStudioClientTests
         Assert.Equal(Config.ChatModel, body.RootElement.GetProperty("model").GetString());
     }
 
+    /// <summary>LM Studio reports a failed generation (a chat template error, say) as an SSE error event with HTTP 200.</summary>
+    [Fact]
+    public async Task A_streamed_error_is_raised_not_read_as_an_empty_reply()
+    {
+        const string sse = """
+            event: error
+            data: {"error":{"message":"Error: Jinja Exception: System message must be at the beginning."}}
+
+            """;
+
+        var e = await Assert.ThrowsAsync<HttpRequestException>(async () =>
+        {
+            await foreach (var _ in Client(new FakeHandler(sse)).StreamChatAsync([ChatMessage.User("hi")], new SamplingParameters(0.7, 0.9, 128), TestContext.Current.CancellationToken))
+            {
+            }
+        });
+        Assert.Contains("System message must be at the beginning", e.Message);
+
+        await Assert.ThrowsAsync<HttpRequestException>(async () =>
+        {
+            await foreach (var _ in Client(new FakeHandler(sse)).StreamCompletionAsync("a dream", new SamplingParameters(1, 0.9, 64), [], TestContext.Current.CancellationToken))
+            {
+            }
+        });
+    }
+
     [Fact]
     public async Task Embeddings_come_back_in_input_order_with_the_task_prefix_applied()
     {
