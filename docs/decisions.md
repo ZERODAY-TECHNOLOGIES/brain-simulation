@@ -50,8 +50,7 @@ Status values: **Decided**, **Open**, **Default** (we go with this unless someon
 - **Decision:** LM Studio serves an embedding model. We train small linear classifiers
   (logistic regression) on those embeddings for threat A, social warmth W and sentiment r.
   The spec's acceptance gate stays: a probe ships only with AUC > 0.85 on held-out data.
-- **Open parts:** which dataset for social warmth (O-03). The embedding model is settled
-  by D-17, surprise S by D-19.
+- **Data and results:** D-24. The embedding model is settled by D-17, surprise S by D-19.
 
 ### D-06. Reward is implicit only, plus a live chemistry Lab
 - **Date:** 2026-11-04
@@ -189,13 +188,29 @@ See [conventions.md](conventions.md#git).
   1,800 generated tokens on top of a full day awake. T8 checks both a quiet day and a day
   with hourly conversation.
 
+### D-24. Probe data and results
+- **Date:** 2026-11-04
+- **Decision:** Four linear probes on `nomic-embed-text-v1.5` embeddings, trained by
+  `tools/ProbeTrainer` and stored in `src/BrainSim.Engine/probes.json`:
+
+  | Probe | Signal | Data | AUC (held out) |
+  |---|---|---|---|
+  | hostility | threat A | tweet_eval `offensive`, 8,000 train, 860 test | 0.868 |
+  | warmth | social W | GoEmotions: admiration, caring, gratitude, love vs the rest | 0.919 |
+  | positive | half of r | GoEmotions positive group | 0.894 |
+  | negative | half of r | GoEmotions negative group | 0.881 |
+
+  r = p(positive) - p(negative). A and W count only above a probability of 0.5, rescaled
+  to [0, 1], because neutral messages score up to about 0.3 on both.
+- **Check:** On sample messages, questions and requests stay under 0.3 on hostility and
+  warmth, "You are useless" gives hostility 0.83, "Thanks, that helps" gives warmth 0.99,
+  "That answer was wrong" gives r = -0.61. T4 passes in part against the real model
+  (`BRAINSIM_LMSTUDIO=1`): hostility raises CORT, which then recovers, and praise gives
+  DA and OXT peaks.
+
 ## Open
 
-### O-03. Probe training data
-Sentiment (for r) and toxicity (for A) have well-known public English sets. Social warmth
-(W) does not. Options to evaluate in Phase 3: an empathy or politeness corpus, emotion
-datasets (warmth-related labels against neutral and hostile), or a small hand-labeled set.
-Whatever we pick must clear AUC > 0.85.
+No open questions right now.
 
 ## LM Studio spike results (2026-11-04)
 

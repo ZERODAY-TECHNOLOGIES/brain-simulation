@@ -61,6 +61,13 @@ As of 2026-11-04:
   cycles and phase chemistry, forced and natural wake, all driven by `Brain.Tick(time)`.
   T8 passes over a full simulated day. Three more spec changes: D-21, D-22 and D-23.
 
-Run the tests with `dotnet test --solution BrainSim.slnx`.
+- **Phase 3:** done. LM Studio client, appraisal (surprise, probes, RPE, impulses), the E2
+  sampling effector and the full agent loop with exact checkpoints. All four probes clear
+  AUC 0.85 (D-24). T4 passes in part against the real model.
+
+Run the tests with `dotnet test --solution BrainSim.slnx`. To also run the scenario tests
+against LM Studio: `BRAINSIM_LMSTUDIO=1 dotnet test --solution BrainSim.slnx`.
+To retrain the probes: `dotnet run --project tools/ProbeTrainer` (about 10 minutes the
+first time, while it embeds the datasets).
 
 Open questions are listed at the end of [decisions.md](decisions.md).

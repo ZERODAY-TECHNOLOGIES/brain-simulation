@@ -11,6 +11,7 @@ using System.Text.Json.Serialization;
 using BrainSim.Engine.Appraisal;
 using BrainSim.Engine.Config;
 using BrainSim.Engine.Llm;
+using Parquet;
 using Parquet.Serialization;
 
 const double AucGate = 0.85;
@@ -74,8 +75,46 @@ static List<T> Sample<T>(List<T> rows, int count)
     return [.. copy.Take(count)];
 }
 
-async Task<List<GoEmotionRow>> ReadGoEmotionsAsync(string split) =>
-    [.. (await ParquetSerializer.DeserializeAsync<GoEmotionRow>(await DownloadAsync("google-research-datasets/go_emotions", "simplified", split))).Data];
+// GoEmotions stores labels as a list of nullable longs, which ParquetSerializer reads as empty.
+// So read the columns directly: a repetition level of 0 starts a new row.
+async Task<List<GoEmotionRow>> ReadGoEmotionsAsync(string split)
+{
+    await using var reader = await ParquetReader.CreateAsync(await DownloadAsync("google-research-datasets/go_emotions", "simplified", split));
+    var textField = reader.Schema.DataFields.First(f => f.Name == "text");
+    var labelField = reader.Schema.DataFields.First(f => f.Path.ToString().StartsWith("labels", StringComparison.Ordinal));
+    var rows = new List<GoEmotionRow>();
+    for (var g = 0; g < reader.RowGroupCount; g++)
+    {
+        using var group = reader.OpenRowGroupReader(g);
+        var texts = new string?[group.RowCount];
+        await group.ReadAsync(textField, texts.AsMemory());
+        var count = (int)group.GetMetadata(labelField)!.MetaData!.NumValues;
+        // ponytail: buffers one slot larger than numValues, which this Parquet.Net version insists on.
+        var values = new long[count + 1];
+        var definition = new int[count + 1];
+        var repetition = new int[count + 1];
+        await group.ReadRawAsync<long>(labelField, values.AsMemory(), definition.AsMemory(), repetition.AsMemory());
+
+        var first = rows.Count;
+        rows.AddRange(texts.Select(t => new GoEmotionRow { Text = t ?? "" }));
+        var row = first - 1;
+        var next = 0;
+        for (var i = 0; i < count; i++)
+        {
+            if (repetition[i] == 0)
+            {
+                row++;
+            }
+
+            if (definition[i] == labelField.MaxDefinitionLevel)
+            {
+                rows[row].Labels.Add(values[next++]);
+            }
+        }
+    }
+
+    return rows;
+}
 
 async Task<List<OffensiveRow>> ReadOffensiveAsync(string split) =>
     [.. (await ParquetSerializer.DeserializeAsync<TweetEvalRow>(await DownloadAsync("cardiffnlp/tweet_eval", "offensive", split))).Data
