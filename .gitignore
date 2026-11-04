@@ -6,3 +6,4 @@ TestResults/
 # runtime output
 journal/
 checkpoints/
+data/

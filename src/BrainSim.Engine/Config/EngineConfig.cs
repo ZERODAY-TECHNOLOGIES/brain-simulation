@@ -16,6 +16,7 @@ public sealed record EngineConfig
     public CircadianConfig Circadian { get; init; } = new();
     public SleepConfig Sleep { get; init; } = new();
     public LlmConfig Llm { get; init; } = new();
+    public SamplingConfig Sampling { get; init; } = new();
 
     public static EngineConfig LoadDefault() => Load(Path.Combine(AppContext.BaseDirectory, "config.yaml"));
 
@@ -52,6 +53,19 @@ public sealed record EngineConfig
         foreach (var term in Modulation.Channels.Values.SelectMany(t => t))
         {
             Substances.Parse(term.Substance);
+        }
+
+        foreach (var (signal, gains) in Appraisal.Gains)
+        {
+            if (signal is not ("surprise" or "reward_error" or "threat" or "warmth" or "expected_reward"))
+            {
+                throw new InvalidDataException($"config.yaml: unknown appraisal signal '{signal}' in gains.");
+            }
+
+            foreach (var substance in gains.Keys)
+            {
+                Substances.Parse(substance);
+            }
         }
 
         foreach (var (phase, targets) in Sleep.PhaseTargets)
@@ -117,6 +131,27 @@ public sealed record ChannelTermConfig
 public sealed record AppraisalConfig
 {
     public double EffortGain { get; init; } = 0.001;
+    public double RewardLearningRate { get; init; } = 0.1;
+    public int SurpriseWindow { get; init; } = 50;
+    public int SurpriseMinSamples { get; init; } = 5;
+    public double SurpriseMax { get; init; } = 3.0;
+    public double ProbeFloor { get; init; } = 0.5;
+    public Dictionary<string, Dictionary<string, double>> Gains { get; init; } = [];
+}
+
+public sealed record SamplingConfig
+{
+    public double T0 { get; init; } = 0.7;
+    public double NeOptimum { get; init; } = 1.3;
+    public double BetaT { get; init; } = 0.3;
+    public double TMin { get; init; } = 0.2;
+    public double TMax { get; init; } = 1.5;
+    public int MaxTokens { get; init; } = 512;
+    public double MaxLengthCut { get; init; } = 0.3;
+    public double TopPMax { get; init; } = 0.95;
+    public double TopPMin { get; init; } = 0.8;
+    public double ElevatedRange { get; init; } = 1.0;
+    public double AdenosineRange { get; init; } = 4.0;
 }
 
 public sealed record CircadianConfig

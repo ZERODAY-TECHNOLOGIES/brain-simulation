@@ -103,9 +103,35 @@ modulation:
     memory_consolidation:
       - { substance: DA,   emax: 0.5 }
 
-# Appraisal. Only effort is used so far; the rest arrives in Phase 3.
+# Appraisal: signals computed on each user message, then released as impulses (spec: "Evaluarea").
 appraisal:
   effort_gain: 0.001          # ADO += effort_gain * tokens generated in the response
+  reward_learning_rate: 0.1   # V += rate * (r - V)
+  surprise_window: 50         # messages kept for novelty and its running stats
+  surprise_min_samples: 5     # ours, not in spec: S stays 0 until this many novelty values exist
+  surprise_max: 3.0
+  probe_floor: 0.5            # ours, not in spec: A and W count only above this probe probability
+  # Impulse per unit of signal. Spread over impulse_spread_ticks like every release.
+  gains:
+    surprise:        { NE: 0.8, ACh: 0.6 }
+    reward_error:    { DA: 1.5 }
+    threat:          { CORT: 0.3, NE: 1.2 }
+    warmth:          { OXT: 0.8, 5-HT: 0.2 }
+    expected_reward: { 5-HT: 0.1 }   # applied to max(V, 0)
+
+# E2 sampling (spec: "E2. Sampling"). Set once per response (D-04).
+sampling:
+  t0: 0.7
+  ne_optimum: 1.3
+  beta_t: 0.3
+  t_min: 0.2
+  t_max: 1.5
+  max_tokens: 512             # ours, not in spec: length at baseline
+  max_length_cut: 0.3         # up to 30% shorter under stress or fatigue
+  top_p_max: 0.95
+  top_p_min: 0.8
+  elevated_range: 1.0         # ours, not in spec: C - 1 at which "elevated" has full effect
+  adenosine_range: 4.0        # ours, not in spec: ADO - 1 at which fatigue has full effect
 
 # Circadian clock and pineal gland. Hours are clock hours, 0 to 24.
 circadian:

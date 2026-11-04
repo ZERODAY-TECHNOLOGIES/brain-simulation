@@ -11,6 +11,7 @@
 
   <ItemGroup>
     <None Update="config.yaml" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="probes.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>
