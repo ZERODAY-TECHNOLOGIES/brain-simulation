@@ -1,0 +1,145 @@
+# Decision log
+
+Every decision that shapes the code goes here. Once something is decided, it stays decided
+unless we write a new entry that replaces it. Dates are absolute.
+
+Status values: **Decided**, **Open**, **Default** (we go with this unless someone objects).
+
+## Decided
+
+### D-01. Everything in .NET, engine in-process
+- **Date:** 2026-11-04
+- **Context:** The spec describes a Python package on top of Hugging Face transformers.
+  That made sense for hooks and LoRA training. With LM Studio as the LLM (D-03), the
+  engine is a few dozen numbers, an HTTP client and some linear classifiers.
+- **Decision:** One .NET solution. The engine is a class library used directly by the WPF
+  app. No Python, no gRPC, no second process.
+- **Consequence:** The spec's module list (`state.py`, `appraisal.py`, ...) maps to C#
+  folders one to one (see [architecture.md](architecture.md#solution-layout)). If we ever
+  need the full spec (steering, LoRA), that backend will need Python or TorchSharp, and we
+  will revisit this entry then.
+
+### D-02. UI stack: WPF + Helix Toolkit (SharpDX) + ScottPlot + AvalonDock
+- **Date:** 2026-11-04
+- **Decision:** WPF for the shell, HelixToolkit.Wpf.SharpDX for 3D (DirectX 11),
+  ScottPlot for real-time charts, AvalonDock for dockable panels, CommunityToolkit.Mvvm
+  for view models.
+- **Risk:** SharpDX itself is no longer maintained. Helix Toolkit still ships on it.
+  Phase 0 spike must confirm it runs on .NET 10 and on the MX550 with transparency,
+  bloom and GPU particles before we commit code to it.
+
+### D-03. LLM: Qwen3.5-0.8B through LM Studio, reduced mode
+- **Date:** 2026-11-04
+- **Decision:** The cortex is Qwen3.5-0.8B served by LM Studio on localhost, through its
+  OpenAI-compatible API with streaming.
+- **Consequence:** No access to the residual stream and no training. E1 (steering) and
+  E3 (LoRA plasticity) are not implemented. Tests T2, T3 and T7 do not apply. T5 and T9
+  apply only in part. Full list in [architecture.md](architecture.md#reduced-mode).
+
+### D-04. Sampling parameters are set once per response
+- **Date:** 2026-11-04
+- **Decision:** T, top-p and max length are computed from the chemistry when the response
+  starts and sent with the request. The chemistry still advances one tick per streamed
+  token, so the display stays live.
+- **Ceiling:** If one response ends up much longer than NE's half-life (40 ticks), the
+  temperature lags behind the chemistry. Upgrade path: one request per token with
+  `max_tokens = 1` and prefix caching.
+
+### D-05. Appraisal through linear probes on embeddings
+- **Date:** 2026-11-04
+- **Decision:** LM Studio serves an embedding model. We train small linear classifiers
+  (logistic regression) on those embeddings for threat A, social warmth W and sentiment r.
+  The spec's acceptance gate stays: a probe ships only with AUC > 0.85 on held-out data.
+- **Open parts:** which dataset for social warmth (O-03), how to get surprise S (O-04).
+  The embedding model is settled by D-17.
+
+### D-06. Reward is implicit only, plus a live chemistry Lab
+- **Date:** 2026-11-04
+- **Decision:** r comes only from the sentiment probe on the user's next message. No like
+  or dislike buttons. Separately, the Lab panel lets the user change the chemistry while
+  the agent runs: inject an impulse, hold a substance at a level, edit baselines, half-lives,
+  gains and W entries.
+- **Rule:** Every Lab action is an event in the journal with its tick, so a session can
+  still be replayed exactly.
+
+### D-07. Layout: 3D in the center, dockable panels, timeline at the bottom
+- **Date:** 2026-11-04
+- **Decision:** See [ui-design.md](ui-design.md#layout).
+
+### D-08. 3D style: hybrid holographic
+- **Date:** 2026-11-04
+- **Decision:** Real anatomical meshes rendered in a holographic style: fresnel-transparent
+  cortex, glowing nuclei, colored particles flowing along projection pathways.
+
+### D-09. Language: English everywhere
+- **Date:** 2026-11-04
+- **Decision:** Code, comments, commit messages, docs and UI text are in English. The spec
+  PDF stays in Romanian as the reference.
+
+### D-10. Writing rules for all project text
+- **Date:** 2026-11-04
+- **Decision:** All text in this project reads like a person wrote it. No emojis. No em
+  dashes. This covers docs, UI copy, code comments and commit messages.
+  Details in [conventions.md](conventions.md#writing-rules).
+
+## Default
+
+### D-11. Target .NET 10 (LTS)
+.NET 9 support ends on 2026-11-10. The .NET 10 desktop runtime is already installed, but
+only SDK 9 is. Action: install the .NET 10 SDK before Phase 0.
+
+### D-12. Idle time is integrated with Euler, not the closed form
+The spec applies the closed form `C(t+D) = b + (C(t) - b) e^(-kD)` between messages. That
+form ignores the W interactions, GABA's tonic production, MEL from the pineal and the
+CORT circadian rhythm, so a night of idle time would skip the very things that should
+happen at night. Euler on 10 variables is cheap: a full 8-hour night at 10 ticks per
+second is 288,000 steps, well under a second. So we use one code path (Euler) everywhere
+and keep the closed form only as the reference in test T1.
+
+### D-13. Real clock in the system time zone, dark window 21:00 to 07:00
+Spec defaults. Simulated mode with factor f is available from the toolbar for testing.
+
+### D-14. Time conversion: 1 second = 10 ticks
+Spec default, kept in `config.yaml`.
+
+### D-15. Git: Conventional Commits on short-lived branches off `main`
+See [conventions.md](conventions.md#git).
+
+### D-16. 3D meshes from Z-Anatomy
+- **Date:** 2026-11-04
+- **Decision:** Z-Anatomy (derived from BodyParts3D, CC BY-SA). It covers cortex,
+  cerebellum, brainstem, thalamus, hypothalamus, hippocampus, amygdala, basal ganglia,
+  pituitary and pineal as separate meshes. Nuclei too small to have meshes (locus
+  coeruleus, raphe, VTA, nucleus basalis, SCN) get proxy shapes at their anatomical
+  positions.
+- **Consequence:** Credits go in `assets/models/ATTRIBUTION.md`. The derived meshes are
+  shared under the same license.
+
+### D-17. The agent chats in English
+- **Date:** 2026-11-04
+- **Decision:** A 0.8B model writes far better English than Romanian, so the conversation
+  is in English.
+- **Consequence:** Probes use `nomic-embed-text-v1.5`, which is already installed in
+  LM Studio, and are trained on public English datasets.
+
+### D-18. Writing rules do not apply to the agent's output
+- **Date:** 2026-11-04
+- **Decision:** D-10 covers project text only. The agent's replies and dreams are not
+  filtered.
+
+## Open
+
+### O-03. Probe training data
+Sentiment (for r) and toxicity (for A) have well-known public English sets. Social warmth
+(W) does not. Options to evaluate in Phase 3: an empathy or politeness corpus, emotion
+datasets (warmth-related labels against neutral and hostile), or a small hand-labeled set.
+Whatever we pick must clear AUC > 0.85.
+
+### O-04. Surprise S without access to the model internals
+The spec uses the mean per-token NLL of the user message. That needs prompt logprobs from
+LM Studio, which we must test in Phase 0. Fallback: novelty of the message embedding
+compared with the last ~50 messages (1 minus max cosine similarity, z-scored).
+
+### Spec decisions that no longer apply
+From the spec's open list: the exact base model is now Qwen3.5-0.8B (D-03); probes versus
+a separate classifier is settled by D-05; the reward source by D-06.
