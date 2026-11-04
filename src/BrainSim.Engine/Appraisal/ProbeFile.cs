@@ -13,9 +13,9 @@ public sealed record ProbeFile(string EmbeddingModel, string EmbeddingPrefix, Da
         DefaultIgnoreCondition = JsonIgnoreCondition.Never,
     };
 
-    public static ProbeFile? LoadDefault()
-    {
-        var path = Path.Combine(AppContext.BaseDirectory, "probes.json");
-        return File.Exists(path) ? JsonSerializer.Deserialize<ProbeFile>(File.ReadAllText(path), Json) : null;
-    }
+    /// <summary>The probes.json shipped next to the binaries, or null when there is none.</summary>
+    public static ProbeFile? LoadDefault() => Load(Path.Combine(AppContext.BaseDirectory, "probes.json"));
+
+    public static ProbeFile? Load(string path) =>
+        File.Exists(path) ? JsonSerializer.Deserialize<ProbeFile>(File.ReadAllText(path), Json) : null;
 }

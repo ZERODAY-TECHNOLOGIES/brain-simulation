@@ -41,6 +41,7 @@ public class AppraisalTests
         var second = appraiser.Appraise(praise, hasPreviousResponse: true);
         Assert.Equal(0.9, second.RewardError, 3);
         appraiser.LearnExpectedReward();
+        Assert.Equal(0.19, appraiser.ExpectedReward, 3);
 
         // Less reward than expected pushes DA below baseline.
         var neutral = appraiser.Appraise(Unit(1, 1, 0.5f, 0.5f), hasPreviousResponse: true);
@@ -110,5 +111,110 @@ public class AppraisalTests
     {
         var signals = new Appraiser(Config.Appraisal, new Dictionary<string, LinearProbe>()).Appraise(Unit(1, 1, 1, 1), hasPreviousResponse: true);
         Assert.Equal((0.0, 0.0, 0.0), (signals.Threat, signals.Warmth, signals.Reward!.Value));
+    }
+
+    [Fact]
+    public void Criticism_after_a_response_is_a_negative_reward()
+    {
+        var signals = new Appraiser(Config.Appraisal, Probes).Appraise(Unit(0, 0, 0, 1), hasPreviousResponse: true);
+        Assert.Equal(-1.0, signals.Reward!.Value, 3);
+    }
+
+    [Fact]
+    public void Surprise_is_the_z_score_of_novelty_once_enough_samples_exist()
+    {
+        // Novelty per message: -, 0, 0, 1, 1. The fifth message is the first with 3 novelty values behind it
+        // (0, 0, 1: mean 1/3, std sqrt(2)/3), so its surprise is (1 - 1/3) / (sqrt(2)/3) = sqrt(2).
+        var surprises = Surprises(Config.Appraisal with { SurpriseMinSamples = 3 }, 0, 0, 0, 1, 2);
+        Assert.Equal([0, 0, 0, 0, Math.Sqrt(2)], surprises, (a, b) => Math.Abs(a - b) < 1e-9);
+    }
+
+    [Fact]
+    public void Messages_older_than_the_window_are_forgotten()
+    {
+        // Window 3. Axis 0 leaves the window after message 5, so returning to it is novel again:
+        // novelty 1 against the recent values 1, 0, 1 (mean 2/3, std sqrt(2)/3) gives 1/sqrt(2).
+        var surprises = Surprises(Config.Appraisal with { SurpriseWindow = 3, SurpriseMinSamples = 3 }, 0, 0, 1, 1, 2, 0);
+        Assert.Equal([0, 0, 0, 0, Math.Sqrt(2), 1 / Math.Sqrt(2)], surprises, (a, b) => Math.Abs(a - b) < 1e-9);
+    }
+
+    [Fact]
+    public void A_restored_appraiser_continues_where_the_saved_one_was()
+    {
+        var saved = new Appraiser(Config.Appraisal, Probes);
+        foreach (var axis in new[] { 0, 0, 0, 1, 1, 0 })
+        {
+            saved.Appraise(Basis(axis), hasPreviousResponse: false);
+        }
+
+        // The target has its own, different history, which the restore must replace.
+        var restored = new Appraiser(Config.Appraisal, Probes);
+        foreach (var axis in new[] { 3, 2, 1 })
+        {
+            restored.Appraise(Basis(axis), hasPreviousResponse: false);
+        }
+
+        restored.Restore(saved.Save());
+
+        // A new topic is surprising, and a topic from the saved history is not.
+        double[] expected = [.. new[] { 3, 1 }.Select(a => saved.Appraise(Basis(a), hasPreviousResponse: false).Surprise)];
+        double[] actual = [.. new[] { 3, 1 }.Select(a => restored.Appraise(Basis(a), hasPreviousResponse: false).Surprise)];
+        Assert.Equal([2, 0], expected, (a, b) => Math.Abs(a - b) < 1e-9);
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public void SetGain_replaces_an_existing_pair_and_adds_a_new_one()
+    {
+        var appraiser = new Appraiser(Config.Appraisal, Probes);
+        var original = appraiser.Gains.ToList();
+        var (signal, substance, _) = original[0];
+
+        appraiser.SetGain(signal, substance, 5);
+        appraiser.SetGain("threat", Substance.Dopamine, 0.7);
+
+        Assert.Equal([(signal, substance, 5.0), .. original.Skip(1), ("threat", Substance.Dopamine, 0.7)], appraiser.Gains);
+    }
+
+    [Fact]
+    public void Release_scales_each_gain_by_its_signal()
+    {
+        var appraiser = new Appraiser(Config.Appraisal, Probes);
+        var none = new AppraisalSignals(Surprise: 0, Reward: null, RewardError: 0, Threat: 0, Warmth: 0, ExpectedReward: 0);
+
+        double Rise(AppraisalSignals signals, Substance substance)
+        {
+            var released = new ChemicalState(Config);
+            var control = new ChemicalState(Config);
+            appraiser.Release(signals, released);
+            for (var t = 0; t < Config.Time.ImpulseSpreadTicks; t++)
+            {
+                released.Step();
+                control.Step();
+            }
+
+            return released[substance] - control[substance];
+        }
+
+        var once = Rise(none with { Surprise = 1 }, Substance.Acetylcholine);
+        Assert.True(once > 0);
+        Assert.Equal(2 * once, Rise(none with { Surprise = 2 }, Substance.Acetylcholine), 9);
+
+        // V adds serotonin only while it is positive.
+        Assert.True(Rise(none with { ExpectedReward = 1 }, Substance.Serotonin) > 0);
+        Assert.Equal(0, Rise(none with { ExpectedReward = -1 }, Substance.Serotonin), 9);
+    }
+
+    private static double[] Surprises(AppraisalConfig config, params int[] axes)
+    {
+        var appraiser = new Appraiser(config, new Dictionary<string, LinearProbe>());
+        return [.. axes.Select(a => appraiser.Appraise(Basis(a), hasPreviousResponse: false).Surprise)];
+    }
+
+    private static float[] Basis(int axis)
+    {
+        var v = new float[4];
+        v[axis] = 1;
+        return v;
     }
 }
