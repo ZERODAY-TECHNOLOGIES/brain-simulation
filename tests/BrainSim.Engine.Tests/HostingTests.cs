@@ -1,0 +1,108 @@
+using BrainSim.Engine.Appraisal;
+using BrainSim.Engine.Config;
+using BrainSim.Engine.Hosting;
+using BrainSim.Engine.Journal;
+using BrainSim.Engine.Llm;
+
+namespace BrainSim.Engine.Tests;
+
+public class HostingTests
+{
+    private static readonly EngineConfig Config = EngineConfig.LoadDefault();
+
+    private static TickRecord Record(long tick, string? token = null) =>
+        new(tick, DateTime.MinValue, "Wake", 0, 0, 0, [], [], [], [], [], token);
+
+    [Fact]
+    public void History_stays_bounded_keeps_recent_ticks_whole_and_keeps_tokens()
+    {
+        var history = new TickHistory(capacity: 1000);
+        for (var t = 0; t < 10_000; t++)
+        {
+            history.Append(Record(t, t == 50 ? "kept" : null));
+        }
+
+        Assert.InRange(history.Count, 500, 1000);
+        Assert.Equal(9_999, history.Latest!.Tick);
+        Assert.Equal("kept", history.At(50)!.Token);
+
+        // The newest 400 ticks are all still there.
+        var recent = history.Window(9_600, 9_999, maxPoints: 10_000);
+        Assert.Equal(400, recent.Count);
+
+        var coarse = history.Window(0, 9_999, maxPoints: 100);
+        Assert.InRange(coarse.Count, 50, 101);
+        Assert.Equal(9_999, coarse[^1].Tick);
+    }
+
+    [Fact]
+    public void Simulated_clock_runs_faster_changes_speed_without_jumps_and_pauses()
+    {
+        var wall = new DateTime(2026, 11, 4, 12, 0, 0);
+        var clock = new SimulationClock(() => wall);
+        var start = new DateTime(2026, 11, 4, 20, 0, 0);
+
+        clock.SetSimulated(60, start);
+        wall = wall.AddMinutes(1);
+        Assert.Equal(start.AddHours(1), clock.Now);
+
+        clock.SetFactor(0);
+        wall = wall.AddMinutes(10);
+        Assert.Equal(start.AddHours(1), clock.Now);
+
+        clock.SetReal();
+        Assert.Equal(wall, clock.Now);
+    }
+
+    [Fact]
+    public async Task Host_answers_logs_journals_applies_the_lab_and_replays()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var directory = Path.Combine(Path.GetTempPath(), $"brainsim-host-{Guid.NewGuid():N}");
+        var llm = new LmStudioClient(new HttpClient(new FakeLmStudio(20)) { BaseAddress = new Uri(Config.Llm.BaseUrl) }, Config.Llm);
+        string journalPath;
+
+        try
+        {
+            await using (var host = new EngineHost(Config, llm, new Dictionary<string, LinearProbe>(), directory))
+            {
+                var replied = new TaskCompletionSource<AgentReply>();
+                var tokens = 0;
+                host.TokenReceived += _ => tokens++;
+                host.Replied += r => replied.TrySetResult(r);
+                host.Failed += e => replied.TrySetException(new InvalidOperationException(e));
+                await host.StartAsync();
+                journalPath = host.JournalPath!;
+
+                host.Send("hello");
+                var reply = await replied.Task.WaitAsync(TimeSpan.FromSeconds(10), ct);
+                Assert.Equal(20, reply.Tokens);
+                Assert.Equal(20, tokens);
+
+                host.Inject(Substance.Dopamine, 2.0);
+                await WaitUntilAsync(() => host.Events.Snapshot().Any(e => e.Kind == EventKinds.Lab), ct);
+                await WaitUntilAsync(() => host.History.Latest!.C[(int)Substance.Dopamine] > 1.5, ct);
+            }
+
+            Assert.True(File.Exists(Path.Combine(directory, "checkpoint.json")));
+            var replay = await ReplaySession.LoadAsync(journalPath);
+            Assert.True(replay.History.Count > 20);
+            Assert.Equal(20, replay.History.Window(0, long.MaxValue, int.MaxValue).Count(r => r.Token is not null));
+            Assert.Equal([EventKinds.User, EventKinds.Agent, EventKinds.Lab], replay.Events.Snapshot().Select(e => e.Kind));
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    private static async Task WaitUntilAsync(Func<bool> condition, CancellationToken ct)
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(10);
+        while (!condition())
+        {
+            Assert.True(DateTime.UtcNow < deadline, "timed out waiting for the engine loop");
+            await Task.Delay(20, ct);
+        }
+    }
+}

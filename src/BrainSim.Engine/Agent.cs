@@ -50,7 +50,11 @@ public sealed class Agent
     public Appraiser Appraiser { get; }
     public IReadOnlyList<ChatMessage> History => _history;
 
-    public async Task<AgentReply> SendAsync(string message, Action<string>? onToken = null, CancellationToken cancellationToken = default)
+    public async Task<AgentReply> SendAsync(
+        string message,
+        Action<string>? onToken = null,
+        CancellationToken cancellationToken = default,
+        Action<AppraisalSignals, SamplingParameters>? onAppraised = null)
     {
         // 1. Catch up idle time, sleeping through it if the conditions were met. The message is light and wakes the brain.
         var now = _clock();
@@ -64,6 +68,7 @@ public sealed class Agent
 
         // 5. Reduced mode: sampling is fixed from the chemistry at the start of the response.
         var sampling = Sampling.Compute(Brain.Chemistry.C, _config.Sampling);
+        onAppraised?.Invoke(signals, sampling);
         _history.Add(ChatMessage.User(message));
         List<ChatMessage> request = [ChatMessage.System(_config.Llm.SystemPrompt), .. _history.TakeLast(_config.Llm.HistoryMessages)];
 

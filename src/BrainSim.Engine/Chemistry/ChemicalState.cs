@@ -1,4 +1,5 @@
 using BrainSim.Engine.Config;
+using MathNet.Numerics.LinearAlgebra;
 
 namespace BrainSim.Engine.Chemistry;
 
@@ -20,19 +21,13 @@ public sealed class ChemicalState
     private readonly double _max;
     private int _slot;
 
+    private readonly EngineConfig _config;
+
     public ChemicalState(EngineConfig config)
     {
-        var halfLives = config.HalfLives();
-        for (var i = 0; i < N; i++)
-        {
-            _k[i] = Math.Log(2) / halfLives[i];
-        }
-
-        foreach (var w in config.Interactions)
-        {
-            _w[(int)Substances.Parse(w.To), (int)Substances.Parse(w.From)] = w.W;
-        }
-
+        _config = config;
+        Array.Fill(Hold, double.NaN);
+        LoadParameters();
         _pending = new double[config.Time.ImpulseSpreadTicks][];
         for (var i = 0; i < _pending.Length; i++)
         {
@@ -44,6 +39,46 @@ public sealed class ChemicalState
         RestingBaseline = config.Concentration.Baseline;
         Array.Fill(C, RestingBaseline);
         Array.Fill(Baseline, RestingBaseline);
+    }
+
+    /// <summary>Lab: a level to hold a substance at after every tick. NaN means not held.</summary>
+    public double[] Hold { get; } = new double[N];
+
+    public double HalfLife(Substance s) => Math.Log(2) / _k[(int)s];
+
+    public double Interaction(Substance from, Substance to) => _w[(int)to, (int)from];
+
+    /// <summary>Lab: change a half-life for the rest of the session.</summary>
+    public void SetHalfLife(Substance s, double halfLife) => _k[(int)s] = Math.Log(2) / halfLife;
+
+    /// <summary>Lab: change one W entry for the rest of the session.</summary>
+    public void SetInteraction(Substance from, Substance to, double w) => _w[(int)to, (int)from] = w;
+
+    /// <summary>Lab: back to the half-lives and W from config.yaml, and nothing held.</summary>
+    public void ResetParameters()
+    {
+        LoadParameters();
+        Array.Fill(Hold, double.NaN);
+    }
+
+    /// <summary>Largest real part among the eigenvalues of -K + W. Negative means stable.</summary>
+    public double LargestEigenvalue(bool asleep) =>
+        Matrix<double>.Build.DenseOfArray(LinearizedMatrix(asleep)).Evd().EigenValues.Max(e => e.Real);
+
+    private void LoadParameters()
+    {
+        var config = _config;
+        var halfLives = config.HalfLives();
+        for (var i = 0; i < N; i++)
+        {
+            _k[i] = Math.Log(2) / halfLives[i];
+        }
+
+        Array.Clear(_w);
+        foreach (var w in config.Interactions)
+        {
+            _w[(int)Substances.Parse(w.To), (int)Substances.Parse(w.From)] = w.W;
+        }
     }
 
     /// <summary>Current concentrations, indexed by <see cref="Substance"/>.</summary>
@@ -90,7 +125,7 @@ public sealed class ChemicalState
                 d += _w[i, j] * (C[j] - Baseline[j]);
             }
 
-            _next[i] = Math.Clamp(C[i] + d, _min, _max);
+            _next[i] = double.IsNaN(Hold[i]) ? Math.Clamp(C[i] + d, _min, _max) : Hold[i];
         }
 
         Array.Copy(_next, C, N);
