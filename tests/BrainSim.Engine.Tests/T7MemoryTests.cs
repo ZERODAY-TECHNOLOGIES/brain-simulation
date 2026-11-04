@@ -25,8 +25,7 @@ public class T7MemoryTests
         float[] v = text.Contains("sister") ? (text.Contains('?') ? [0.8f, 0.6f, 0, 0, 0] : [1, 0, 0, 0, 0])
             : text.Contains("lighthouse") ? [0, 0, 0, 1, 0]
             : [0, 0, 1, 0, 0.1f * (text.Sum(c => c) % 7)];
-        var norm = MathF.Sqrt(v.Sum(x => x * x));
-        return [.. v.Select(x => x / norm)];
+        return Vectors.Unit(v);
     }
 
     private static string Reply(JsonDocument request)

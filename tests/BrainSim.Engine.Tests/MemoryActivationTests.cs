@@ -1,6 +1,8 @@
 using BrainSim.Engine.Config;
 using BrainSim.Engine.Memory;
 
+using static BrainSim.Engine.Tests.Vectors;
+
 namespace BrainSim.Engine.Tests;
 
 public class MemoryActivationTests
@@ -8,12 +10,6 @@ public class MemoryActivationTests
     private static readonly EngineConfig Config = EngineConfig.LoadDefault();
     private static readonly DateTime Now = new(2026, 11, 4, 12, 0, 0);
     private static readonly double[] Calm = Enumerable.Repeat(1.0, Substances.Count).ToArray();
-
-    private static float[] Unit(params float[] v)
-    {
-        var norm = MathF.Sqrt(v.Sum(x => x * x));
-        return [.. v.Select(x => x / norm)];
-    }
 
     private static Chunk Fact(DeclarativeMemory memory, float[] embedding, DateTime at, string text = "a fact") =>
         memory.AddFact(text, embedding, episodeId: 0, default, at);

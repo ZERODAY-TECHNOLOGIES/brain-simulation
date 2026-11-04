@@ -2,6 +2,8 @@ using BrainSim.Engine.Appraisal;
 using BrainSim.Engine.Chemistry;
 using BrainSim.Engine.Config;
 
+using static BrainSim.Engine.Tests.Vectors;
+
 namespace BrainSim.Engine.Tests;
 
 public class AppraisalTests
@@ -22,12 +24,6 @@ public class AppraisalTests
         var w = new float[4];
         w[i] = 20;
         return new LinearProbe(w, -10, 1, "test");
-    }
-
-    private static float[] Unit(params float[] v)
-    {
-        var norm = MathF.Sqrt(v.Sum(x => x * x));
-        return [.. v.Select(x => x / norm)];
     }
 
     [Fact]

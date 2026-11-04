@@ -31,10 +31,10 @@ public sealed class LmStudioClient(HttpClient http, LlmConfig config)
         new(new HttpClient { BaseAddress = new Uri(config.BaseUrl), Timeout = TimeSpan.FromMinutes(5) }, config);
 
     /// <summary>Streams the reply one token at a time.</summary>
-    public async IAsyncEnumerable<string> StreamChatAsync(
+    public IAsyncEnumerable<string> StreamChatAsync(
         IReadOnlyList<ChatMessage> messages,
         SamplingParameters sampling,
-        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default)
     {
         var body = new ChatRequest(
             config.ChatModel,
@@ -43,47 +43,31 @@ public sealed class LmStudioClient(HttpClient http, LlmConfig config)
             sampling.TopP,
             sampling.MaxTokens,
             Stream: true);
-
-        using var request = new HttpRequestMessage(HttpMethod.Post, "chat/completions") { Content = JsonContent.Create(body, options: Json) };
-        using var response = await http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
-        response.EnsureSuccessStatusCode();
-        using var reader = new StreamReader(await response.Content.ReadAsStreamAsync(cancellationToken));
-
-        while (await reader.ReadLineAsync(cancellationToken) is { } line)
-        {
-            if (!line.StartsWith("data: ", StringComparison.Ordinal))
-            {
-                continue;
-            }
-
-            var data = line["data: ".Length..];
-            if (data == "[DONE]")
-            {
-                yield break;
-            }
-
-            ThrowIfError(data);
-            var chunk = JsonSerializer.Deserialize<ChatChunk>(data, Json);
-            var content = chunk?.Choices is [{ Delta.Content: { Length: > 0 } text }, ..] ? text : null;
-            if (content is not null)
-            {
-                yield return content;
-            }
-        }
+        return StreamAsync<ChatChunk>("chat/completions", body, c => c?.Choices is [{ Delta.Content: { } text }, ..] ? text : null, cancellationToken);
     }
 
     /// <summary>
     /// Raw continuation of <paramref name="prompt"/>, with no chat template and no instructions. Used for dreams.
     /// LM Studio streams one token per chunk here too, but returns no logprobs on this endpoint.
     /// </summary>
-    public async IAsyncEnumerable<string> StreamCompletionAsync(
+    public IAsyncEnumerable<string> StreamCompletionAsync(
         string prompt,
         SamplingParameters sampling,
         IReadOnlyList<string>? stop = null,
-        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default)
     {
         var body = new CompletionRequest(config.ChatModel, prompt, sampling.Temperature, sampling.TopP, sampling.MaxTokens, Stream: true, stop?.ToArray());
-        using var request = new HttpRequestMessage(HttpMethod.Post, "completions") { Content = JsonContent.Create(body, options: Json) };
+        return StreamAsync<CompletionChunk>("completions", body, c => c?.Choices is [{ Text: { } text }, ..] ? text : null, cancellationToken);
+    }
+
+    /// <summary>Posts <paramref name="body"/> and yields the non-empty text of each SSE chunk until [DONE].</summary>
+    private async IAsyncEnumerable<string> StreamAsync<TChunk>(
+        string path,
+        object body,
+        Func<TChunk?, string?> textOf,
+        [EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, path) { Content = JsonContent.Create(body, body.GetType(), options: Json) };
         using var response = await http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
         response.EnsureSuccessStatusCode();
         using var reader = new StreamReader(await response.Content.ReadAsStreamAsync(cancellationToken));
@@ -102,8 +86,7 @@ public sealed class LmStudioClient(HttpClient http, LlmConfig config)
             }
 
             ThrowIfError(data);
-            var chunk = JsonSerializer.Deserialize<CompletionChunk>(data, Json);
-            if (chunk?.Choices is [{ Text: { Length: > 0 } text }, ..])
+            if (textOf(JsonSerializer.Deserialize<TChunk>(data, Json)) is { Length: > 0 } text)
             {
                 yield return text;
             }
