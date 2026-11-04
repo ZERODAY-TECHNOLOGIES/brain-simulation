@@ -42,6 +42,28 @@ public class MarkdownTests
     }
 
     [Fact]
+    public void Underscore_marks_at_the_edges_of_the_text_leave_no_empty_spans()
+    {
+        Assert.Equal(
+            [
+                new MarkdownSpan("bold", SpanStyle.Bold),
+                new MarkdownSpan(" then ", SpanStyle.None),
+                new MarkdownSpan("italic", SpanStyle.Italic),
+            ],
+            Markdown.Inline("__bold__ then _italic_"));
+    }
+
+    [Fact]
+    public void Windows_line_endings_and_blank_lines_at_either_end_are_dropped()
+    {
+        var blocks = Markdown.Parse("\r\n\r\nfirst\r\n\r\nsecond\r\n\r\n");
+
+        Assert.Equal([BlockKind.Paragraph, BlockKind.Blank, BlockKind.Paragraph], blocks.Select(b => b.Kind));
+        Assert.Equal(["first", "second"], blocks.Where(b => b.Kind == BlockKind.Paragraph).Select(b => b.Spans.Single().Text));
+        Assert.Empty(Markdown.Parse(""));
+    }
+
+    [Fact]
     public void Unclosed_marks_while_streaming_stay_as_text()
     {
         Assert.Equal([new MarkdownSpan("This is **bol", SpanStyle.None)], Markdown.Inline("This is **bol"));

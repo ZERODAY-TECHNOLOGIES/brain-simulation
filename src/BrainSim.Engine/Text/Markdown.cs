@@ -27,8 +27,11 @@ public enum BlockKind
 
 public sealed record MarkdownSpan(string Text, SpanStyle Style);
 
-/// <summary>One line of rendered markdown. <paramref name="Level"/> is the heading level or the list indent.</summary>
-public sealed record MarkdownBlock(BlockKind Kind, int Level, string Marker, IReadOnlyList<MarkdownSpan> Spans);
+/// <summary>
+/// One line of rendered markdown. <paramref name="Level"/> is the heading level or the list indent,
+/// <paramref name="Marker"/> the number of a numbered item ("2.").
+/// </summary>
+public sealed record MarkdownBlock(BlockKind Kind, int Level, IReadOnlyList<MarkdownSpan> Spans, string Marker = "");
 
 /// <summary>
 /// The markdown a small model actually writes, parsed line by line: headings, bullet and numbered lists, quotes,
@@ -41,9 +44,9 @@ public static partial class Markdown
     {
         var blocks = new List<MarkdownBlock>();
         var inCode = false;
-        foreach (var raw in text.Replace("\r", "").Split('\n'))
+        foreach (var raw in text.Split('\n'))
         {
-            var line = raw.TrimEnd();
+            var line = raw.TrimEnd(); // also drops the \r of a Windows line ending
             var trimmed = line.TrimStart();
             if (trimmed.StartsWith("```", StringComparison.Ordinal))
             {
@@ -53,7 +56,7 @@ public static partial class Markdown
 
             if (inCode)
             {
-                blocks.Add(new MarkdownBlock(BlockKind.Code, 0, "", [new MarkdownSpan(line, SpanStyle.Code)]));
+                blocks.Add(new MarkdownBlock(BlockKind.Code, 0, [new MarkdownSpan(line, SpanStyle.Code)]));
                 continue;
             }
 
@@ -61,7 +64,7 @@ public static partial class Markdown
             {
                 if (blocks.Count > 0 && blocks[^1].Kind != BlockKind.Blank)
                 {
-                    blocks.Add(new MarkdownBlock(BlockKind.Blank, 0, "", []));
+                    blocks.Add(new MarkdownBlock(BlockKind.Blank, 0, []));
                 }
 
                 continue;
@@ -87,36 +90,36 @@ public static partial class Markdown
         Match m;
         if ((m = HeadingPattern().Match(trimmed)).Success)
         {
-            return new MarkdownBlock(BlockKind.Heading, m.Groups[1].Length, "", Inline(m.Groups[2].Value));
+            return new MarkdownBlock(BlockKind.Heading, m.Groups[1].Length, Inline(m.Groups[2].Value));
         }
 
         if (RulePattern().IsMatch(trimmed))
         {
-            return new MarkdownBlock(BlockKind.Rule, 0, "", []);
+            return new MarkdownBlock(BlockKind.Rule, 0, []);
         }
 
         if ((m = BulletPattern().Match(trimmed)).Success)
         {
-            return new MarkdownBlock(BlockKind.Bullet, indent, "", Inline(m.Groups[1].Value));
+            return new MarkdownBlock(BlockKind.Bullet, indent, Inline(m.Groups[1].Value));
         }
 
         if ((m = NumberedPattern().Match(trimmed)).Success)
         {
-            return new MarkdownBlock(BlockKind.Numbered, indent, m.Groups[1].Value + ".", Inline(m.Groups[2].Value));
+            return new MarkdownBlock(BlockKind.Numbered, indent, Inline(m.Groups[2].Value), m.Groups[1].Value + ".");
         }
 
         if (trimmed.StartsWith('>'))
         {
-            return new MarkdownBlock(BlockKind.Quote, 0, "", Inline(trimmed.TrimStart('>', ' ')));
+            return new MarkdownBlock(BlockKind.Quote, 0, Inline(trimmed.TrimStart('>', ' ')));
         }
 
         if (trimmed.StartsWith('|'))
         {
             var cells = trimmed.Trim('|').Split('|').Select(c => c.Trim());
-            return TableSeparatorPattern().IsMatch(trimmed) ? null : new MarkdownBlock(BlockKind.TableRow, 0, "", Inline(string.Join("   |   ", cells)));
+            return TableSeparatorPattern().IsMatch(trimmed) ? null : new MarkdownBlock(BlockKind.TableRow, 0, Inline(string.Join("   |   ", cells)));
         }
 
-        return new MarkdownBlock(BlockKind.Paragraph, 0, "", Inline(trimmed));
+        return new MarkdownBlock(BlockKind.Paragraph, 0, Inline(trimmed));
     }
 
     public static List<MarkdownSpan> Inline(string text)
