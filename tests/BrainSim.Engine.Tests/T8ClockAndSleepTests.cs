@@ -64,7 +64,7 @@ public class T8ClockAndSleepTests
         Assert.True(clock.MelatoninProduction(night) > 0);
         clock.OnLight(night);
         Assert.Equal(0, clock.MelatoninProduction(night.AddMinutes(29)));
-        Assert.True(clock.MelatoninProduction(night.AddMinutes(31)) > 0);
+        Assert.True(clock.MelatoninProduction(night.AddMinutes(30)) > 0); // the light lasts exactly light_minutes
     }
 
     [Fact]
@@ -205,6 +205,21 @@ public class T8ClockAndSleepTests
 
         Assert.Equal(0.25, lit.Clock.ShiftHours, 9);
         Assert.Equal(0.0, dark.Clock.ShiftHours, 9);
+
+        // A brain restored from a checkpoint keeps the shifted clock and shows the same modulation right away.
+        var restored = new Brain(Config, evening);
+        restored.Restore(lit.Save());
+        Assert.Equal(lit.Clock.Save(), restored.Clock.Save());
+        Assert.Equal(lit.Modulation.M, restored.Modulation.M);
+    }
+
+    [Fact]
+    public void Idle_time_ticks_up_to_and_including_the_target_time()
+    {
+        var brain = new Brain(Config, Morning);
+        brain.AdvanceTo(Morning.AddSeconds(1));
+        Assert.Equal(Morning.AddSeconds(1), brain.Now);
+        Assert.Equal(10, brain.Chemistry.Tick); // ticks_per_second
     }
 
     private static void Converse(Brain brain, int tokens)
