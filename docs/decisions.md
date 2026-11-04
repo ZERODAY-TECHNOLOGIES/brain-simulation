@@ -178,14 +178,18 @@ See [conventions.md](conventions.md#git).
   CORT alone would reach 1.5. The CORT and 5-HT loop carries the peak to about +60%.
   T8 accepts a peak between 1.35 and 1.75.
 
-## Open
+### D-23. ADO also rises with time awake
+- **Date:** 2026-11-04
+- **Context:** In the spec ADO grows only with effort. A quiet day gave the agent too little
+  sleep pressure to ever fall asleep.
+- **Decision:** Like process S in Borbely's model, ADO gets a small constant source on every
+  awake tick, 3.8e-6, sized so a day with no conversation ends in sleep around 23:00.
+  Effort still adds 0.001 per generated token on top.
+- **Consequence:** A busy day reaches the forced-sleep limit (ADO 5.0) sooner: after about
+  1,800 generated tokens on top of a full day awake. T8 checks both a quiet day and a day
+  with hourly conversation.
 
-### O-05. Should ADO also rise with time awake?
-The spec says ADO grows only with effort (generated tokens). A user who chats little gives
-the agent too little ADO to ever fall asleep, so it would stay awake through the night,
-with MEL high but P under 2.0. Borbely's process S rises with time awake on its own.
-Options: keep the spec (sleep only after enough conversation), or add a small per-tick
-ADO rise while awake, so a quiet day still ends in sleep.
+## Open
 
 ### O-03. Probe training data
 Sentiment (for r) and toxicity (for A) have well-known public English sets. Social warmth

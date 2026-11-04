@@ -137,6 +137,9 @@ public sealed class Brain
         b[Cort] = Clock.CortisolTarget(Clock.Phase(Now));
         Chemistry.Source[Cort] = Now < _awakeningUntil ? _awakeningSource : 0;
         Chemistry.Source[Mel] = Clock.MelatoninProduction(Now);
+
+        // Process S: besides effort, ADO creeps up with every awake tick (D-23). Sleep drains it.
+        Chemistry.Source[Ado] = Asleep ? 0 : _config.Sleep.WakeAdenosineRise;
         Chemistry.Asleep = Asleep;
     }
 

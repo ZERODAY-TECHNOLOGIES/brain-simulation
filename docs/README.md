@@ -59,7 +59,7 @@ As of 2026-11-04:
   unstable and had to be recalibrated (D-20).
 - **Phase 2:** done. Circadian clock, pineal gland, light and jet lag, sleep decision,
   cycles and phase chemistry, forced and natural wake, all driven by `Brain.Tick(time)`.
-  T8 passes over a full simulated day. Two more spec fixes: D-21 and D-22.
+  T8 passes over a full simulated day. Three more spec changes: D-21, D-22 and D-23.
 
 Run the tests with `dotnet test --solution BrainSim.slnx`.
 

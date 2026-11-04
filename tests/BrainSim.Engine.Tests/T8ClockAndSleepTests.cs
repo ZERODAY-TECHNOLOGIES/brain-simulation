@@ -74,8 +74,8 @@ public class T8ClockAndSleepTests
         var transitions = new List<SleepTransition>();
         brain.Transition += transitions.Add;
 
-        // A chatty day: a message every 30 minutes from 08:00 to 21:00, 100-token replies.
-        for (var message = Morning; message <= Morning.AddHours(13); message = message.AddMinutes(30))
+        // A conversation every hour from 08:00 to 21:00, 100-token replies.
+        for (var message = Morning; message <= Morning.AddHours(13); message = message.AddHours(1))
         {
             brain.AdvanceTo(message);
             Converse(brain, tokens: 100);
@@ -129,6 +129,22 @@ public class T8ClockAndSleepTests
         Assert.True(adenosineAtWake < 1.2, $"ADO at wake was {adenosineAtWake}");
         // Secretion is sized for +50%. The CORT and 5-HT loop in W adds roughly another 0.1 on top.
         Assert.InRange(cortisolAfterWake, 1.35, 1.75);
+    }
+
+    [Fact]
+    public void A_quiet_day_still_ends_in_sleep()
+    {
+        // No conversation at all: only the awake ADO rise builds sleep pressure (D-23).
+        var wakeUp = Morning.AddHours(-1);
+        var brain = new Brain(Config, wakeUp);
+        var transitions = new List<SleepTransition>();
+        brain.Transition += transitions.Add;
+
+        brain.AdvanceTo(wakeUp.AddHours(25));
+
+        Assert.Equal([TransitionKind.FellAsleep, TransitionKind.WokeNaturally], transitions.Select(t => t.Kind));
+        Assert.InRange(transitions[0].Time, wakeUp.AddHours(15), wakeUp.AddHours(17));   // 22:00 to 24:00
+        Assert.InRange(transitions[1].Time, wakeUp.AddHours(24), wakeUp.AddHours(25));   // 07:00 to 08:00
     }
 
     [Fact]

@@ -127,6 +127,7 @@ sleep:
   onset_melatonin: 1.5        # and MEL > this
   onset_idle_minutes: 10      # and the user has been idle this long
   forced_adenosine: 5.0       # fall asleep regardless when ADO reaches this (the clamp max)
+  wake_adenosine_rise: 3.8e-6 # ours, not in spec: ADO per awake tick, so a quiet day ends in sleep near 23:00 (D-23)
   wake_pressure: 0.5          # wake naturally when P < this and the dark window is over
   cycle_minutes: 90
   n1_fraction: 0.05

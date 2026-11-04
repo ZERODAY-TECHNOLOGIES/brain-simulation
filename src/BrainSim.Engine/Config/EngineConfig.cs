@@ -139,6 +139,7 @@ public sealed record SleepConfig
     public double OnsetMelatonin { get; init; } = 1.5;
     public double OnsetIdleMinutes { get; init; } = 10;
     public double ForcedAdenosine { get; init; } = 5.0;
+    public double WakeAdenosineRise { get; init; } = 3.8e-6;
     public double WakePressure { get; init; } = 0.5;
     public double CycleMinutes { get; init; } = 90;
     public double N1Fraction { get; init; } = 0.05;
