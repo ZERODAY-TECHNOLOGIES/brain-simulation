@@ -107,6 +107,32 @@ public sealed class DeclarativeMemory(MemoryConfig config, int seed = 11)
         return chunk;
     }
 
+    /// <summary>
+    /// Stores a fact, unless one already in memory says the same thing (cosine above duplicate_cosine):
+    /// then that one gets a new presentation instead, so restating strengthens rather than duplicates.
+    /// </summary>
+    public Chunk AddOrStrengthenFact(string text, float[] embedding, int episodeId, MemoryModulation m, DateTime now)
+    {
+        lock (_gate)
+        {
+            var same = _chunks
+                .Where(c => c is { Kind: ChunkKind.Fact, Embedding: not null })
+                .Select(c => (Chunk: c, Cosine: Cosine(embedding, c.Embedding!)))
+                .Where(x => x.Cosine > config.DuplicateCosine)
+                .OrderByDescending(x => x.Cosine)
+                .Select(x => x.Chunk)
+                .FirstOrDefault();
+            if (same is not null)
+            {
+                same.Presentations.Add(new Presentation(now, EncodingWeight(m)));
+                same.Archived = false;
+                return same;
+            }
+        }
+
+        return AddFact(text, embedding, episodeId, m, now);
+    }
+
     /// <summary>Up to recall_count facts above the threshold, highest first. Each recall is a new presentation.</summary>
     public IReadOnlyList<Recall> RecallFacts(float[] query, MemoryModulation m, DateTime now)
     {

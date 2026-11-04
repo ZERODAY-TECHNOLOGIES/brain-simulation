@@ -10,11 +10,31 @@ internal sealed class FakeLmStudio(int replyTokens) : HttpMessageHandler
     public List<JsonDocument> ChatRequests { get; } = [];
     public List<JsonDocument> CompletionRequests { get; } = [];
 
+    /// <summary>When set, embeddings come from this, one vector per input. Otherwise the "thanks" rule above.</summary>
+    public Func<string, float[]>? Embed { get; init; }
+
+    /// <summary>When set, a chat request is answered with this text in one chunk. Otherwise tokens t0, t1, ...</summary>
+    public Func<JsonDocument, string>? Reply { get; init; }
+
+    /// <summary>When set, embedding and chat calls throw, like LM Studio going away.</summary>
+    public bool Down { get; set; }
+
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
         var body = await request.Content!.ReadAsStringAsync(cancellationToken);
+        if (Down)
+        {
+            throw new HttpRequestException("LM Studio is not running");
+        }
+
         string response;
-        if (request.RequestUri!.AbsolutePath.EndsWith("embeddings"))
+        if (request.RequestUri!.AbsolutePath.EndsWith("embeddings") && Embed is { } embed)
+        {
+            var inputs = JsonDocument.Parse(body).RootElement.GetProperty("input").EnumerateArray().Select(e => e.GetString()!).ToList();
+            var data = inputs.Select((text, i) => new { index = i, embedding = embed(text) });
+            response = JsonSerializer.Serialize(new { data });
+        }
+        else if (request.RequestUri!.AbsolutePath.EndsWith("embeddings"))
         {
             var input = JsonDocument.Parse(body).RootElement.GetProperty("input")[0].GetString()!;
             var vector = input.Contains("thanks") ? "[0,0,1,0]" : "[0.5,0.5,0.5,0.5]";
@@ -31,6 +51,12 @@ internal sealed class FakeLmStudio(int replyTokens) : HttpMessageHandler
             }
 
             response = sse.Append("data: [DONE]\n\n").ToString();
+        }
+        else if (Reply is { } reply)
+        {
+            var document = JsonDocument.Parse(body);
+            ChatRequests.Add(document);
+            response = "data: " + JsonSerializer.Serialize(new { choices = new[] { new { delta = new { content = reply(document) } } } }) + "\n\ndata: [DONE]\n\n";
         }
         else
         {
