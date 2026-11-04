@@ -26,5 +26,8 @@ public class StabilityTests
         var real = RealParts(asleep: false);
         Assert.Single(real, re => Math.Abs(re) < 1e-12);
         Assert.All(real.Where(re => Math.Abs(re) >= 1e-12), re => Assert.True(re < 0, $"eigenvalue real part {re} is not negative"));
+
+        // So the largest one, which the Lab shows, is that zero.
+        Assert.Equal(0.0, new ChemicalState(EngineConfig.LoadDefault()).LargestEigenvalue(asleep: false), 12);
     }
 }

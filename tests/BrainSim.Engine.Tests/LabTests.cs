@@ -28,6 +28,10 @@ public class LabTests
         Assert.InRange(lift, 0.45, 0.55);
         Assert.True(brain.Receptors.Rho[(int)Substance.Serotonin] < 0.85);
 
+        // Reset also undoes everything else the Lab changes: half-lives, W (an entry config.yaml leaves at 0 too) and holds.
+        brain.Chemistry.SetHalfLife(Substance.Serotonin, 1e9);
+        brain.Chemistry.SetInteraction(Substance.Adenosine, Substance.Serotonin, 0.001);
+        brain.Chemistry.Hold[(int)Substance.Serotonin] = 1.5;
         brain.Chemistry.ResetParameters();
         control.AdvanceTo(Noon.AddHours(4));
         brain.AdvanceTo(Noon.AddHours(4));

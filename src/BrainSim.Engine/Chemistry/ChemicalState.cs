@@ -51,10 +51,6 @@ public sealed class ChemicalState
     /// <summary>Lab: a level to hold a substance at after every tick. NaN means not held.</summary>
     public double[] Hold { get; } = new double[N];
 
-    public double HalfLife(Substance s) => Math.Log(2) / _k[(int)s];
-
-    public double Interaction(Substance from, Substance to) => _w[(int)to, (int)from];
-
     /// <summary>Lab: change a half-life for the rest of the session.</summary>
     public void SetHalfLife(Substance s, double halfLife) => _k[(int)s] = Math.Log(2) / halfLife;
 

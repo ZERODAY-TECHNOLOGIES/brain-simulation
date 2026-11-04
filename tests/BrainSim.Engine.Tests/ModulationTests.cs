@@ -25,6 +25,13 @@ public class ModulationTests
     }
 
     [Fact]
+    public void An_unknown_channel_name_throws_and_names_it()
+    {
+        var e = Assert.Throws<KeyNotFoundException>(() => ComputeAt(_ => { })["no_such_channel"]);
+        Assert.Contains("'no_such_channel'", e.Message);
+    }
+
+    [Fact]
     public void Cortisol_makes_the_agent_more_anxious_and_more_cautious()
     {
         var modulation = ComputeAt(c => c[(int)Substance.Cortisol] = 2.5);

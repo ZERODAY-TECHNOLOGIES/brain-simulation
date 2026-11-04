@@ -29,6 +29,21 @@ public class T1ImpulseResponseTests
     }
 
     [Fact]
+    public void A_half_life_set_in_the_lab_is_the_one_the_decay_follows()
+    {
+        var chemistry = new ChemicalState(EngineConfig.LoadDefault() with { Interactions = [] });
+        chemistry.SetHalfLife(Substance.Dopamine, 40); // config.yaml says 100
+        chemistry[Substance.Dopamine] = 2.0;
+
+        for (var t = 0; t < 40; t++)
+        {
+            chemistry.Step();
+        }
+
+        Assert.InRange(chemistry[Substance.Dopamine] - 1.0, 0.5 * 0.98, 0.5 * 1.02);
+    }
+
+    [Fact]
     public void Adenosine_does_not_decay_while_awake()
     {
         var chemistry = new ChemicalState(EngineConfig.LoadDefault() with { Interactions = [] });
