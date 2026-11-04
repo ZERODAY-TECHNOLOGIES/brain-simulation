@@ -76,14 +76,9 @@ public sealed class TickHistory(int capacity = 100_000)
     {
         lock (_gate)
         {
-            if (_records.Count == 0)
-            {
-                return [];
-            }
-
             var start = Math.Max(IndexAtOrBefore(fromTick), 0);
             var end = IndexAtOrBefore(toTick);
-            var count = end - start + 1;
+            var count = end - start + 1; // an empty history or a window before the first tick gives 0 or less
             if (count <= 0)
             {
                 return [];

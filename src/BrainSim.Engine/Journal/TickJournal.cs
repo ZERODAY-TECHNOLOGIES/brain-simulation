@@ -144,7 +144,7 @@ public sealed class TickJournal : IAsyncDisposable
             for (var i = 0; i < n; i++)
             {
                 onRecord(new TickRecord(
-                    ticks[i], new DateTime(times[i]), phases[i] ?? "", cycles[i], phis[i], pressures[i],
+                    ticks[i], new DateTime(times[i]), phases[i]!, cycles[i], phis[i], pressures[i],
                     c[i], baseline[i], meanC[i], rho[i], m[i], tokens[i]));
             }
         }
