@@ -159,12 +159,12 @@ Optional slow auto-rotate when idle.
 
 ### Model pipeline
 
-1. Source meshes from Z-Anatomy (D-16).
-2. In Blender: keep the structures from the mapping table, decimate to the budget, put
-   everything in one coordinate frame, name meshes `region.<name>` (for example
-   `region.locus_coeruleus`).
-3. Add proxy shapes for nuclei too small to have meshes (locus coeruleus, raphe, VTA,
-   nucleus basalis, SCN).
-4. Export one `brain.glb` to `assets/models/`, with credits in `assets/models/ATTRIBUTION.md`.
-5. Pathways are not modeled. The app builds them as splines from the source centroid to
-   each target centroid, with per-path bend offsets in a small JSON file.
+Built by `tools/MeshPrep` (D-28), no Blender needed:
+
+1. Download the BodyParts3D STL parts for the structures in the mapping table.
+2. Weld, merge into regions, decimate each region to its triangle budget.
+3. Recenter and rescale to about 3.2 units, in app axes (X right, Y up, Z front).
+4. Compute anchor points for the nuclei too small to have meshes.
+5. Write `assets/models/brain.bin`, with credits in `assets/models/ATTRIBUTION.md`.
+6. Pathways are not modeled. The app builds them as quadratic curves from each source anchor
+   to each target centroid, bent away from the center of the brain.

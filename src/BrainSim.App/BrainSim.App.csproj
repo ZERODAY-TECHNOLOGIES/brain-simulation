@@ -15,6 +15,11 @@
     <PackageReference Include="Dirkster.AvalonDock.Themes.VS2013" />
     <PackageReference Include="Dirkster.AvalonDock.Serializer.Xml" />
     <PackageReference Include="ScottPlot.WPF" />
+    <PackageReference Include="HelixToolkit.Wpf.SharpDX" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="../../assets/models/brain.bin" Link="assets/brain.bin" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

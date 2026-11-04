@@ -236,6 +236,34 @@ See [conventions.md](conventions.md#git).
 - **Ceiling:** the conversation kept in the checkpoint is capped at 400 messages until the
   ACT-R memory takes over long-term storage.
 
+### D-28. 3D brain: BodyParts3D meshes built by tools/MeshPrep
+- **Date:** 2026-11-04
+- **Context:** Z-Anatomy (D-16) ships only Blender and FBX files, and its brain comes from
+  BodyParts3D. Blender is not installed here.
+- **Decision:** Use BodyParts3D 3.0 directly, through the STL mirror on GitHub. `tools/MeshPrep`
+  downloads 58 parts, welds and merges them into 35 regions (lobes per hemisphere, basal
+  ganglia, thalamus, limbic structures, brainstem, cerebellum, pineal, pituitary), decimates
+  each with quadric simplification to about 160,000 triangles in total, and writes
+  `assets/models/brain.bin` (3.7 MB, in Git LFS). Same license as D-16: CC BY-SA, credits in
+  `assets/models/ATTRIBUTION.md`.
+- **Anchors:** nuclei without meshes get positions computed from their neighbors: locus
+  coeruleus in the dorsal upper pons, raphe on the brainstem midline, VTA in the ventral
+  midbrain, nucleus basalis between globus pallidus and amygdala, SCN at the front and
+  bottom of the hypothalamus. The adrenal glands are a schematic stand-in below the medulla.
+
+### D-29. How the 3D scene shows the chemistry
+- **Date:** 2026-11-04
+- **Particles follow release, not level.** The rate on each pathway is the production flux
+  of its substance, dC/dt + k (C - b), from consecutive frames. At baseline it is 0, so the
+  calm scene stays calm, and a substance held high by the Lab glows without streaming.
+- **Nuclei and particles are drawn on top of the tissue** (`TopMostGroup3D`), so they glow
+  through the transparent cortex instead of being dimmed by its layers.
+- **Rim:** Helix has no fresnel material; a soft border highlight on the cortex gives it the
+  holographic edge.
+- **Rendering goes through D3DImage, not a swap chain.** The swap chain lives in a child
+  window, and WPF cannot draw the layer and camera controls over it. The D3DImage path
+  still holds 58 to 60 fps on the MX550 with the full scene.
+
 ## Open
 
 No open questions right now.

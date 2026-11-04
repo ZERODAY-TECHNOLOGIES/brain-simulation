@@ -70,6 +70,10 @@ As of 2026-11-04:
   replay of saved sessions, the Lab with baselines, gains and a W heatmap, and a saved panel
   layout. Responsive from 1024 x 640 up (D-27).
 
+- **Phase 5:** done. The holographic 3D brain from BodyParts3D (160k triangles): glowing
+  nuclei, particles along the projection pathways driven by release, layers, labels, HPA
+  inset, camera presets, sleep lighting and hover info. 58 to 60 fps on the MX550 (D-28, D-29).
+
 Run the app with `dotnet run --project src/BrainSim.App` (LM Studio on, both models loaded).
 Run the tests with `dotnet test --solution BrainSim.slnx`. To also run the scenario tests
 against LM Studio: `BRAINSIM_LMSTUDIO=1 dotnet test --solution BrainSim.slnx`.

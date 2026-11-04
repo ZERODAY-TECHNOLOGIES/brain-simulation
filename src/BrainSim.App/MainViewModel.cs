@@ -58,6 +58,7 @@ public sealed partial class MainViewModel : ObservableObject
     private int _chatEventCount = -1;
     private long _chatCursor = -1;
     private DateTime _lastSlowUpdate;
+    private (double Value, DateTime At) _lastThreat;
 
     public MainViewModel(EngineHost host, EngineConfig config, int probeCount)
     {
@@ -73,7 +74,12 @@ public sealed partial class MainViewModel : ObservableObject
         Gains = [.. config.Appraisal.Gains.SelectMany(g => g.Value.Select(s => new GainRow(g.Key, Substances.Parse(s.Key), s.Value, this)))];
         Channels = [.. host.Agent.Brain.Modulation.Names.Select(n => new ChannelRow(n))];
 
-        host.Appraised += (_, _, _) => _dispatcher.BeginInvoke(() => { _streaming = ""; RebuildChat(force: true); });
+        host.Appraised += (_, signals, _) => _dispatcher.BeginInvoke(() =>
+        {
+            _streaming = "";
+            _lastThreat = (signals.Threat, DateTime.UtcNow);
+            RebuildChat(force: true);
+        });
         host.TokenReceived += token => _dispatcher.BeginInvoke(() => AppendToken(token));
         host.Replied += _ => _dispatcher.BeginInvoke(() => { _streaming = null; RebuildChat(force: true); });
         host.Failed += _ => _dispatcher.BeginInvoke(() => { _streaming = null; RebuildChat(force: true); });
@@ -163,6 +169,10 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty] private string _lastSamplingText = "";
 
     public bool CanEdit => !IsReplayFile;
+
+    /// <summary>Threat A of the last live message, fading over about two seconds. Lights the amygdala.</summary>
+    public double ThreatPulse() =>
+        IsLive ? _lastThreat.Value * Math.Exp(-(DateTime.UtcNow - _lastThreat.At).TotalSeconds / 2) : 0;
 
     public void Start() => _timer.Start();
 

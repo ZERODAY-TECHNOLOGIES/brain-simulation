@@ -9,8 +9,11 @@ namespace BrainSim.App;
 
 public partial class App : Application
 {
+    /// <summary>Checkpoint, journals and layout. BRAINSIM_DATA points a test run somewhere else, so it leaves the real brain alone.</summary>
     public static string DataDirectory { get; } =
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "BrainSim");
+        Environment.GetEnvironmentVariable("BRAINSIM_DATA") is { Length: > 0 } custom
+            ? custom
+            : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "BrainSim");
 
     private EngineHost? _host;
 

@@ -7,6 +7,7 @@
     <PackageVersion Include="Parquet.Net" Version="6.1.0" />
     <PackageVersion Include="MathNet.Numerics" Version="5.0.0" />
     <PackageVersion Include="HelixToolkit.Wpf.SharpDX" Version="3.1.2" />
+    <PackageVersion Include="HelixToolkit.Geometry" Version="3.1.2" />
     <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.4.2" />
     <PackageVersion Include="Dirkster.AvalonDock" Version="5.0.1" />
     <PackageVersion Include="Dirkster.AvalonDock.Themes.VS2013" Version="5.0.1" />

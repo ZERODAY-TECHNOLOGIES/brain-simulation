@@ -1,0 +1,48 @@
+<UserControl x:Class="BrainSim.App.Views.BrainView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:hx="http://helix-toolkit.org/wpf/SharpDX">
+  <Grid Background="{StaticResource BackgroundBrush}">
+    <hx:Viewport3DX x:Name="Viewport"
+                    BackgroundColor="#0B0F14"
+                    ShowViewCube="False"
+                    ShowCoordinateSystem="False"
+                    ShowFrameRate="False"
+                    FXAALevel="Low"
+                    ZoomExtentsWhenLoaded="False"
+                    EnableSwapChainRendering="False" />
+
+    <!-- Layers, top left. Wraps on narrow panels. -->
+    <Border VerticalAlignment="Top" HorizontalAlignment="Left" Margin="10" Padding="10,6" CornerRadius="6"
+            Background="#CC121821" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" MaxWidth="230">
+      <StackPanel>
+        <TextBlock Text="Layers" Style="{StaticResource SectionTitle}" Margin="0,0,0,4" />
+        <CheckBox x:Name="ShowCortex" Content="Cortex" IsChecked="True" Click="OnLayersChanged" />
+        <CheckBox x:Name="ShowSubcortical" Content="Subcortical" IsChecked="True" Click="OnLayersChanged" />
+        <CheckBox x:Name="ShowNuclei" Content="Nuclei" IsChecked="True" Click="OnLayersChanged" />
+        <CheckBox x:Name="ShowPaths" Content="Pathways" IsChecked="True" Click="OnLayersChanged" />
+        <CheckBox x:Name="ShowHpa" Content="HPA axis" IsChecked="False" Click="OnLayersChanged" />
+        <CheckBox x:Name="ShowLabels" Content="Labels" IsChecked="False" Click="OnLayersChanged" />
+        <TextBlock Text="Cortex opacity" Style="{StaticResource Muted}" Margin="0,6,0,0" />
+        <Slider x:Name="CortexOpacity" Minimum="0.02" Maximum="0.6" Value="0.12" />
+      </StackPanel>
+    </Border>
+
+    <!-- Camera presets, top right. -->
+    <WrapPanel VerticalAlignment="Top" HorizontalAlignment="Right" Margin="10" MaxWidth="360">
+      <Button Content="Lateral" Padding="10,2" Margin="0,0,4,4" Click="OnCamera" Tag="lateral" />
+      <Button Content="Medial" Padding="10,2" Margin="0,0,4,4" Click="OnCamera" Tag="medial" ToolTip="Hides the right hemisphere and looks at the inside of the left one" />
+      <Button Content="Top" Padding="10,2" Margin="0,0,4,4" Click="OnCamera" Tag="top" />
+      <Button Content="Front" Padding="10,2" Margin="0,0,4,4" Click="OnCamera" Tag="front" />
+    </WrapPanel>
+
+    <!-- Hover info, bottom left. -->
+    <Border x:Name="InfoPanel" VerticalAlignment="Bottom" HorizontalAlignment="Left" Margin="10" Padding="10,6" CornerRadius="6"
+            Background="#CC121821" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" Visibility="Collapsed">
+      <TextBlock x:Name="Info" Style="{StaticResource Number}" FontSize="12" />
+    </Border>
+
+    <TextBlock x:Name="LoadError" Foreground="{StaticResource WarnBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"
+               TextWrapping="Wrap" MaxWidth="500" Visibility="Collapsed" />
+  </Grid>
+</UserControl>
