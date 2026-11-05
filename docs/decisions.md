@@ -346,6 +346,24 @@ See [conventions.md](conventions.md#git).
 - **Consequence:** The fake LM Studio in the tests rejects a late system message the same way,
   so a regression fails the suite instead of passing silently.
 
+### D-35. Any OpenAI-compatible backend, chosen in Settings
+- **Date:** 2026-11-05
+- **Context:** The backend lived in the llm section of config.yaml, which is read from the
+  build output, so a change was lost on the next build. The client could not send an API key,
+  so hosted servers were out of reach.
+- **Decision:** A Settings dialog (toolbar) edits the server address, an optional API key,
+  the chat model, and the embedding model and prefix, with an optional separate embedding
+  server. It saves `settings.json` in the data directory, which replaces the llm section at
+  the next start; nothing applies live. The key is encrypted with DPAPI for the current Windows
+  user and sent as a bearer token. A corrupt file is set aside as `settings.json.bad`.
+  Probes trained on a different embedding model or prefix (`probes.json` records both) are
+  turned off at startup, with an error event, rather than reading noise.
+- **Consequence:** LM Studio, Ollama, llama.cpp, vLLM and hosted APIs work for chat. Dreams
+  use the legacy `/v1/completions`, which some hosted APIs no longer offer. Changing the
+  embedding model needs the probes retrained (tools/ProbeTrainer) and leaves facts already in
+  memory with embeddings from the old model; the memory thresholds of D-33 were measured on
+  nomic-embed and may need recalibrating.
+
 ## Open
 
 No open questions right now.

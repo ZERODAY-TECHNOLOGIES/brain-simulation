@@ -22,11 +22,30 @@ public partial class App : Application
         base.OnStartup(e);
         try
         {
+            // The Settings dialog's choice of backend replaces the llm section of config.yaml (D-35).
             var config = EngineConfig.LoadDefault();
-            var probes = ProbeFile.LoadDefault()?.Probes ?? [];
+            var hadSettings = File.Exists(SettingsWindow.SettingsPath);
+            if (LlmSettingsFile.Load(SettingsWindow.SettingsPath, Dpapi.Unprotect) is { } settings)
+            {
+                config = config with { Llm = settings.ApplyTo(config.Llm) };
+            }
+
+            // Probes trained on another embedding model would read noise, so they stay off until retrained.
+            var probeFile = ProbeFile.LoadDefault();
+            var probesFit = probeFile is null || probeFile.Fits(config.Llm);
+            var probes = probesFit ? probeFile?.Probes ?? [] : [];
             _host = new EngineHost(config, LmStudioClient.Create(config.Llm), probes, DataDirectory);
-            var viewModel = new MainViewModel(_host, config, probes.Count);
+            var viewModel = new MainViewModel(_host, config, probes.Count, probesFit);
             await _host.StartAsync();
+            if (hadSettings && !File.Exists(SettingsWindow.SettingsPath))
+            {
+                _host.Report("settings.json could not be read. It was set aside as settings.json.bad and the backend from config.yaml is used.");
+            }
+
+            if (!probesFit)
+            {
+                _host.Report($"The appraisal probes were trained on {probeFile!.EmbeddingModel}, not {config.Llm.EmbeddingModel}. They are off until retrained with tools/ProbeTrainer.");
+            }
 
             var window = new MainWindow(viewModel);
             window.Closing += (_, _) =>

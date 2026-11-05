@@ -24,7 +24,8 @@
         <WrapPanel VerticalAlignment="Center">
           <TextBlock Text="{Binding SourceLabel}" FontWeight="Bold" VerticalAlignment="Center" Foreground="#34D399" Margin="0,2,12,2" />
           <Button Content="Live" Padding="12,2" Command="{Binding GoLiveCommand}" Margin="0,2,6,2" />
-          <Button Content="Open session" Padding="12,2" Command="{Binding OpenSessionCommand}" Margin="0,2,24,2" />
+          <Button Content="Open session" Padding="12,2" Command="{Binding OpenSessionCommand}" Margin="0,2,6,2" />
+          <Button Content="Settings" Padding="12,2" Click="OnSettings" Margin="0,2,24,2" />
           <TextBlock Text="{Binding ClockText}" Style="{StaticResource Number}" VerticalAlignment="Center" Margin="0,2,18,2" />
           <TextBlock Text="{Binding PhaseText}" VerticalAlignment="Center" Margin="0,2,24,2" Foreground="{StaticResource TextBrush}" />
           <StackPanel Orientation="Horizontal" Margin="0,2">

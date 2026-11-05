@@ -23,6 +23,9 @@ public partial class MainWindow : Window
         Loaded += (_, _) => LoadLayout();
     }
 
+    private void OnSettings(object sender, RoutedEventArgs e) =>
+        new SettingsWindow(((MainViewModel)DataContext).Config.Llm) { Owner = this }.ShowDialog();
+
     /// <summary>Saves where the panels are. Called on close.</summary>
     public void SaveLayout()
     {

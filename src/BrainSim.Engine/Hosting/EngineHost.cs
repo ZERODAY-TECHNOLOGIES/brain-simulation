@@ -292,7 +292,8 @@ public sealed class EngineHost : IAsyncDisposable
     private void Log(string kind, string text, Dictionary<string, double>? values = null) =>
         Events.Add(new EventRecord(Agent.Brain.Chemistry.Tick, Agent.Brain.Now, kind, text, values));
 
-    private void Report(string message)
+    /// <summary>Logs a problem the user should see (an error event) and raises <see cref="Failed"/>.</summary>
+    public void Report(string message)
     {
         Log(EventKinds.Error, message);
         Failed?.Invoke(message);

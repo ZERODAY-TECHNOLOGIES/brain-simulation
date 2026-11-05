@@ -1,13 +1,13 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.IO;
-using System.Net.Http;
 using System.Windows.Media;
 using System.Windows.Threading;
 using BrainSim.Engine;
 using BrainSim.Engine.Circadian;
 using BrainSim.Engine.Config;
 using BrainSim.Engine.Effectors;
+using BrainSim.Engine.Llm;
 using BrainSim.Engine.Hosting;
 using BrainSim.Engine.Journal;
 using BrainSim.Engine.Memory;
@@ -73,12 +73,13 @@ public sealed partial class MainViewModel : ObservableObject
     private DateTime _lastSlowUpdate;
     private (double Value, DateTime At) _lastThreat;
 
-    public MainViewModel(EngineHost host, EngineConfig config, int probeCount)
+    public MainViewModel(EngineHost host, EngineConfig config, int probeCount, bool probesFit = true)
     {
         _host = host;
         _config = config;
         _clockShape = new CircadianClock(config.Circadian);
-        ProbesText = probeCount == 4 ? "Probes: 4 of 4" : $"Probes: {probeCount} of 4, missing signals read as 0";
+        ProbesText = !probesFit ? "Probes: off, trained on another embedding model"
+            : probeCount == 4 ? "Probes: 4 of 4" : $"Probes: {probeCount} of 4, missing signals read as 0";
         SelectedClockMode = ClockModes[0];
         SelectedWindow = Windows[1];
         SubstanceRows = [.. Substances.All.Select(s => new SubstanceRow(s, this))];
@@ -184,7 +185,7 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty] private string _cursorText = "";
     [ObservableProperty] private string _clockText = "";
     [ObservableProperty] private string _phaseText = "";
-    [ObservableProperty] private string _lmStudioText = "LM Studio: checking";
+    [ObservableProperty] private string _lmStudioText = "LLM: checking";
     [ObservableProperty] private bool _lmStudioOk;
     [ObservableProperty] private string _probesText;
     [ObservableProperty] private ClockMode _selectedClockMode;
@@ -647,20 +648,21 @@ public sealed partial class MainViewModel : ObservableObject
 
     private async Task PingLmStudioAsync()
     {
-        using var http = new HttpClient { BaseAddress = new Uri(_config.Llm.BaseUrl), Timeout = TimeSpan.FromSeconds(3) };
+        var client = LmStudioClient.Create(_config.Llm);
         while (true)
         {
             try
             {
-                using var response = await http.GetAsync("models");
-                LmStudioOk = response.IsSuccessStatusCode;
+                using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+                await client.ModelsAsync(embeddings: false, timeout.Token); // with the API key, so hosted servers answer too
+                LmStudioOk = true;
             }
             catch (Exception)
             {
                 LmStudioOk = false;
             }
 
-            LmStudioText = LmStudioOk ? $"LM Studio: {_config.Llm.ChatModel}" : "LM Studio: not reachable";
+            LmStudioText = LmStudioOk ? $"LLM: {_config.Llm.ChatModel}" : "LLM: not reachable";
             await Task.Delay(TimeSpan.FromSeconds(5));
         }
     }
