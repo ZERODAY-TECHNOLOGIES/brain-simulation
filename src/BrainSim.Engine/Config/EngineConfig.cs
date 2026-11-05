@@ -221,6 +221,12 @@ public sealed record SleepConfig
 public sealed record LlmConfig
 {
     public string BaseUrl { get; init; } = "http://localhost:1234/v1/";
+
+    /// <summary>Where embeddings are requested. Empty means the chat server at <see cref="BaseUrl"/>.</summary>
+    public string EmbeddingBaseUrl { get; init; } = "";
+
+    /// <summary>Sent as a bearer token when set. Comes from the Settings dialog, never from config.yaml in the repo.</summary>
+    public string ApiKey { get; init; } = "";
     public string ChatModel { get; init; } = "";
     public string EmbeddingModel { get; init; } = "";
     public string EmbeddingPrefix { get; init; } = "";

@@ -16,7 +16,7 @@ public readonly record struct ChatMessage(string Role, string Content)
 public readonly record struct SamplingParameters(double Temperature, double TopP, int MaxTokens);
 
 /// <summary>
-/// LM Studio's OpenAI-compatible API: streamed chat and embeddings.
+/// An OpenAI-compatible API (LM Studio by default, see D-35): streamed chat, raw completions and embeddings.
 /// LM Studio sends one SSE chunk per token, so each chunk is one tick.
 /// </summary>
 public sealed class LmStudioClient(HttpClient http, LlmConfig config)
@@ -67,7 +67,7 @@ public sealed class LmStudioClient(HttpClient http, LlmConfig config)
         Func<TChunk?, string?> textOf,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
-        using var request = new HttpRequestMessage(HttpMethod.Post, path) { Content = JsonContent.Create(body, body.GetType(), options: Json) };
+        using var request = Request(HttpMethod.Post, new Uri(path, UriKind.Relative), body);
         using var response = await http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
         response.EnsureSuccessStatusCode();
         using var reader = new StreamReader(await response.Content.ReadAsStreamAsync(cancellationToken));
@@ -97,11 +97,42 @@ public sealed class LmStudioClient(HttpClient http, LlmConfig config)
     public async Task<float[][]> EmbedAsync(IReadOnlyList<string> texts, CancellationToken cancellationToken = default)
     {
         var body = new EmbeddingRequest(config.EmbeddingModel, [.. texts.Select(t => config.EmbeddingPrefix + t)]);
-        using var response = await http.PostAsJsonAsync("embeddings", body, Json, cancellationToken);
+        using var request = Request(HttpMethod.Post, Endpoint("embeddings", embeddings: true), body);
+        using var response = await http.SendAsync(request, cancellationToken);
         response.EnsureSuccessStatusCode();
         var result = await response.Content.ReadFromJsonAsync<EmbeddingResponse>(Json, cancellationToken)
             ?? throw new InvalidDataException("LM Studio returned an empty embedding response.");
         return [.. result.Data.OrderBy(d => d.Index).Select(d => d.Embedding)];
+    }
+
+    /// <summary>The model ids the chat server (or, with <paramref name="embeddings"/>, the embedding server) offers.</summary>
+    public async Task<IReadOnlyList<string>> ModelsAsync(bool embeddings, CancellationToken cancellationToken = default)
+    {
+        using var request = Request(HttpMethod.Get, Endpoint("models", embeddings), body: null);
+        using var response = await http.SendAsync(request, cancellationToken);
+        response.EnsureSuccessStatusCode();
+        var result = await response.Content.ReadFromJsonAsync<ModelList>(Json, cancellationToken);
+        return [.. result?.Data.Select(m => m.Id) ?? []];
+    }
+
+    /// <summary>Embeddings may live on their own server; everything else goes to the chat server (the client's base address).</summary>
+    private Uri Endpoint(string path, bool embeddings) =>
+        embeddings && config.EmbeddingBaseUrl.Length > 0 ? new Uri(new Uri(config.EmbeddingBaseUrl), path) : new Uri(path, UriKind.Relative);
+
+    private HttpRequestMessage Request(HttpMethod method, Uri uri, object? body)
+    {
+        var request = new HttpRequestMessage(method, uri);
+        if (body is not null)
+        {
+            request.Content = JsonContent.Create(body, body.GetType(), options: Json);
+        }
+
+        if (config.ApiKey.Length > 0)
+        {
+            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", config.ApiKey);
+        }
+
+        return request;
     }
 
     /// <summary>
@@ -145,4 +176,8 @@ public sealed class LmStudioClient(HttpClient http, LlmConfig config)
     private sealed record EmbeddingResponse(EmbeddingData[] Data);
 
     private sealed record EmbeddingData(int Index, float[] Embedding);
+
+    private sealed record ModelList(ModelEntry[] Data);
+
+    private sealed record ModelEntry(string Id);
 }
