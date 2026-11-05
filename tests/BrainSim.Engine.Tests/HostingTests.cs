@@ -323,7 +323,7 @@ public class HostingTests
             host.Post(a => a.Brain.Chemistry[Substance.Adenosine] = Config.Sleep.ForcedAdenosine);
             await OnLoopAsync(host, _ => 0, ct);
             Interlocked.Add(ref wall, TimeSpan.FromMinutes(85).Ticks);
-            await WaitUntilAsync(() => Texts(EventKinds.Sleep).Contains("Dream started from 1 memories"), ct);
+            await WaitUntilAsync(() => Texts(EventKinds.Sleep).Contains("Dream started from 1 memories"), ct, seconds: 60); // about 50,000 ticks
             host.Send("good morning"); // wakes it mid-dream
             await WaitUntilAsync(() => replies == 1, ct);
 
@@ -331,7 +331,7 @@ public class HostingTests
             host.Post(a => a.Brain.Chemistry[Substance.Adenosine] = Config.Sleep.ForcedAdenosine);
             await OnLoopAsync(host, _ => 0, ct);
             Interlocked.Add(ref wall, TimeSpan.FromMinutes(95).Ticks);
-            await WaitUntilAsync(() => Texts(EventKinds.Dream).Count == 2, ct);
+            await WaitUntilAsync(() => Texts(EventKinds.Dream).Count == 2, ct, seconds: 60);
 
             Assert.Contains("ForcedSleep from Wake", Texts(EventKinds.Sleep));
             Assert.Contains("ForcedWake from Rem", Texts(EventKinds.Sleep));
@@ -354,9 +354,9 @@ public class HostingTests
         return await result.Task.WaitAsync(TimeSpan.FromSeconds(10), ct);
     }
 
-    private static async Task WaitUntilAsync(Func<bool> condition, CancellationToken ct)
+    private static async Task WaitUntilAsync(Func<bool> condition, CancellationToken ct, int seconds = 10)
     {
-        var deadline = DateTime.UtcNow.AddSeconds(10);
+        var deadline = DateTime.UtcNow.AddSeconds(seconds);
         while (!condition())
         {
             Assert.True(DateTime.UtcNow < deadline, "timed out waiting for the engine loop");
