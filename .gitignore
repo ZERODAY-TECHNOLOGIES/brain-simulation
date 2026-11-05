@@ -9,3 +9,4 @@ StrykerOutput/
 /checkpoints/
 /data/
 .claude/settings.local.json
+/.claude/worktrees/
