@@ -14,6 +14,22 @@
         <TextBlock Text="{Binding LastSamplingText}" Style="{StaticResource Number}" />
       </StackPanel>
 
+      <TextBlock Text="E1 steering, sent as a mood note in the system prompt (D-38)" Style="{StaticResource SectionTitle}" Margin="0,14,0,4" />
+      <Grid>
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="150" />
+          <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+          <RowDefinition Height="Auto" />
+          <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <TextBlock Text="Next reply would get" Style="{StaticResource Muted}" />
+        <TextBlock Grid.Column="1" x:Name="MoodNext" Text="{Binding MoodText}" Foreground="{StaticResource TextBrush}" TextWrapping="Wrap" MaxWidth="560" HorizontalAlignment="Left" />
+        <TextBlock Grid.Row="1" Text="Last reply got" Style="{StaticResource Muted}" Margin="0,4,0,0" />
+        <TextBlock Grid.Row="1" Grid.Column="1" x:Name="MoodLast" Text="{Binding LastMoodText}" Foreground="{StaticResource TextBrush}" TextWrapping="Wrap" MaxWidth="560" HorizontalAlignment="Left" Margin="0,4,0,0" />
+      </Grid>
+
       <TextBlock Text="CB1 brake on release" Style="{StaticResource SectionTitle}" Margin="0,14,0,4" />
       <StackPanel Orientation="Horizontal">
         <TextBlock Text="CB1 tone" Style="{StaticResource Muted}" Width="150" />

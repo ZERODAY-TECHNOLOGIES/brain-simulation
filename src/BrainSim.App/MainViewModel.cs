@@ -89,10 +89,11 @@ public sealed partial class MainViewModel : ObservableObject
         var w = config.Interactions.ToDictionary(i => (Substances.Parse(i.From), Substances.Parse(i.To)), i => i.W);
         WCells = [.. Substances.All.SelectMany(from => Substances.All.Select(to => new WCell(from, to, w.GetValueOrDefault((from, to)), this)))];
         Gains = [.. config.Appraisal.Gains.SelectMany(g => g.Value.Select(s => new GainRow(g.Key, Substances.Parse(s.Key), s.Value, this)))];
-        Channels = [.. host.Agent.Brain.Modulation.Names.Select(n => new ChannelRow(n))];
+        Channels = [.. host.Agent.Brain.Modulation.Names.Select(n => new ChannelRow(n, config.Mood.Channels.ContainsKey(n)))];
 
-        host.Appraised += (_, signals, _, recalled, _) => _dispatcher.BeginInvoke(() =>
+        host.Appraised += (_, signals, _, recalled, mood) => _dispatcher.BeginInvoke(() =>
         {
+            LastMoodText = mood ?? NoMood;
             _streaming = "";
             _lastThreat = (signals.Threat, DateTime.UtcNow);
             _lastRecalled = recalled;
@@ -200,6 +201,10 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty] private bool _stable = true;
     [ObservableProperty] private string _samplingText = "";
     [ObservableProperty] private string _lastSamplingText = "";
+
+    private const string NoMood = "(none, every channel near rest)";
+    [ObservableProperty] private string _moodText = "";
+    [ObservableProperty] private string _lastMoodText = "";
     [ObservableProperty] private string _cb1Text = "";
     [ObservableProperty] private bool _dreaming;
     [ObservableProperty] private string _currentDream = "";
@@ -564,6 +569,7 @@ public sealed partial class MainViewModel : ObservableObject
             CursorText = $"tick {f.Tick:N0}";
             var next = Sampling.Compute(f.C, _config.Sampling);
             SamplingText = $"T {next.Temperature:0.00}   top-p {next.TopP:0.00}   max {next.MaxTokens} tokens";
+            MoodText = MoodNote.Describe(_host.Agent.Brain.Modulation.Names, f.M, _config.Mood) ?? NoMood;
             Cb1Text = $"{f.Cb1:+0.000;-0.000;0.000}   release NE x{_ecb.Gain(Substance.Norepinephrine, f.Cb1):0.00}, " +
                 $"CORT x{_ecb.Gain(Substance.Cortisol, f.Cb1):0.00}, DA x{_ecb.Gain(Substance.Dopamine, f.Cb1):0.00}";
             for (var k = 0; k < Channels.Count && k < f.M.Length; k++)
@@ -905,14 +911,17 @@ public sealed partial class GainRow(string signal, Substance substance, double g
 }
 
 /// <summary>A modulation channel m_k, shown as a bipolar bar.</summary>
-public sealed partial class ChannelRow(string name) : ObservableObject
+public sealed partial class ChannelRow(string name, bool mood) : ObservableObject
 {
     public string Name { get; } = name;
 
     public string Label => Name.Replace('_', ' ');
 
-    /// <summary>Steering and plasticity are computed but not applied in reduced mode (D-03).</summary>
-    public string Note => Name.StartsWith("memory", StringComparison.Ordinal) ? "exported to memory (E4)" : "computed, not applied";
+    /// <summary>Steering reaches the model as the mood note (D-38); plasticity is computed but not applied (D-03).</summary>
+    public string Note =>
+        mood ? "sent as a mood note"
+        : Name.StartsWith("memory", StringComparison.Ordinal) ? "exported to memory (E4)"
+        : "computed, not applied";
 
     [ObservableProperty] private double _value;
 }
