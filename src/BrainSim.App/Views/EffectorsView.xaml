@@ -14,6 +14,12 @@
         <TextBlock Text="{Binding LastSamplingText}" Style="{StaticResource Number}" />
       </StackPanel>
 
+      <TextBlock Text="CB1 brake on release" Style="{StaticResource SectionTitle}" Margin="0,14,0,4" />
+      <StackPanel Orientation="Horizontal">
+        <TextBlock Text="CB1 tone" Style="{StaticResource Muted}" Width="150" />
+        <TextBlock Text="{Binding Cb1Text}" Style="{StaticResource Number}" />
+      </StackPanel>
+
       <TextBlock Text="Modulation channels (m_k)" Style="{StaticResource SectionTitle}" Margin="0,14,0,4" />
       <ItemsControl ItemsSource="{Binding Channels}">
         <ItemsControl.ItemTemplate>

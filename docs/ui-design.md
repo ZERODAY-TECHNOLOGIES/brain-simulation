@@ -46,7 +46,7 @@ bottom. Every panel can be moved, tabbed, floated or hidden. The layout is saved
 | **Chat** | The conversation, tokens streaming in. Under each user message a small appraisal line: S, A, W, r, delta. Under each agent reply: T, top-p, max length used. No reward buttons (D-06) |
 | **Chemistry** | Strip charts of all 10 substances with the baseline line at 1.0 (or the current phase target during sleep). Window: 1k, 10k, 100k ticks or a full day. Current values as bars beside the charts |
 | **Receptors** | rho per substance over time. Hill curve per substance with markers for the current C and the baseline. Status per substance: normal, tolerant, withdrawal, sensitized |
-| **Effectors** | Applied: T, top-p, max length. Computed but not applied (marked as such): the six steering directions as bipolar bars, eta. E4 exports: encoding strength, activation noise, retrieval threshold, consolidation boost |
+| **Effectors** | Applied: T, top-p, max length. Computed but not applied (marked as such): the six steering directions as bipolar bars, eta. E4 exports: encoding strength, activation noise, retrieval threshold, consolidation boost. The CB1 brake: tone and the release gains it gives NE, CORT and DA (D-36) |
 | **Clock** | 24-hour dial with phi, the dark window arc and light periods. Plots of MEL, circadian alertness C(phi) and sleep pressure P with the 2.0 and 0.5 thresholds |
 | **Sleep** | Live hypnogram (same style as the spec), cycle number, phase targets table, NREM replay list |
 | **Dreams** | Dream journal: time, seed fragments, chemistry snapshot, text. The dream in progress is revealed at 1 token per 2 s |
@@ -73,7 +73,7 @@ someone asks.
 
 ### Substance colors
 
-Ten colors cannot all be distinct for every reader, so color is never the only cue: every
+Twelve colors cannot all be distinct for every reader, so color is never the only cue: every
 series and every glowing structure has a label.
 
 | Substance | Hex | Why this color |
@@ -88,6 +88,8 @@ series and every glowing structure has a label.
 | GH | `#34D399` | Green, repair |
 | MEL | `#C7D2FE` | Pale moonlight |
 | ADO | `#A3826B` | Muted brown, fatigue |
+| AEA | `#D9F99D` | Light lime: the endocannabinoid tone |
+| 2-AG | `#84CC16` | Lime: the same system, made on demand (D-36) |
 
 ### Type and icons
 
@@ -129,6 +131,7 @@ Hybrid holographic (D-08):
 | GH | Anterior pituitary | Release pulses at the pituitary |
 | MEL | Pineal gland, driven by the SCN | SCN to pineal pathway lit at night, release pulses at the pineal |
 | ADO | Extracellular, no source | A slowly thickening fog, denser around the basal forebrain |
+| AEA, 2-AG | Made on demand by the neurons they act on, no source nucleus | A lime tint on the regions dense in CB1 (hippocampus, amygdala, caudate, putamen, cerebellum, frontal cortex), following CB1 tone, faint on the cortex; they dim a little below rest. Hover shows AEA, 2-AG and the tone |
 
 Other structures with a role:
 - **Amygdala** lights up with threat A on each message.

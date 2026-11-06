@@ -31,6 +31,16 @@ public class EndocannabinoidTests
         Assert.Equal(Config.Dreams.Detension, ecb.Detension(Config.Dreams.Detension));
     }
 
+    [Theory]
+    [InlineData(Substance.Norepinephrine, 0.1, 0.8)]   // 1 - 2.0 * 0.1
+    [InlineData(Substance.Cortisol, 0.1, 0.8)]
+    [InlineData(Substance.Dopamine, 0.1, 1.1)]         // 1 + 1.0 * 0.1
+    [InlineData(Substance.Oxytocin, 0.1, 1.0)]         // not braked
+    [InlineData(Substance.Norepinephrine, 1.0, 0.25)]  // clamped at gain_min
+    [InlineData(Substance.Norepinephrine, -1.0, 2.0)]  // clamped at gain_max
+    public void Gain_from_tone_matches_config(Substance substance, double cb1, double expected) =>
+        Assert.Equal(expected, new EndocannabinoidSystem(Config).Gain(substance, cb1), 12);
+
     [Fact]
     public void Low_aea_makes_sleep_harder()
     {

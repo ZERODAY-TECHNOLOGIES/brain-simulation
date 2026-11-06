@@ -7,6 +7,7 @@ using BrainSim.Engine;
 using BrainSim.Engine.Circadian;
 using BrainSim.Engine.Config;
 using BrainSim.Engine.Effectors;
+using BrainSim.Engine.Endocannabinoids;
 using BrainSim.Engine.Llm;
 using BrainSim.Engine.Hosting;
 using BrainSim.Engine.Journal;
@@ -64,6 +65,7 @@ public sealed partial class MainViewModel : ObservableObject
     private readonly EngineHost _host;
     private readonly EngineConfig _config;
     private readonly CircadianClock _clockShape;
+    private readonly EndocannabinoidSystem _ecb; // only its gain function, to show the brake a frame implies
     private readonly Dispatcher _dispatcher = Dispatcher.CurrentDispatcher;
     private readonly DispatcherTimer _timer;
     private ReplaySession? _replay;
@@ -78,6 +80,7 @@ public sealed partial class MainViewModel : ObservableObject
         _host = host;
         _config = config;
         _clockShape = new CircadianClock(config.Circadian);
+        _ecb = new EndocannabinoidSystem(config);
         ProbesText = !probesFit ? "Probes: off, trained on another embedding model"
             : probeCount == 4 ? "Probes: 4 of 4" : $"Probes: {probeCount} of 4, missing signals read as 0";
         SelectedClockMode = ClockModes[0];
@@ -197,6 +200,7 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty] private bool _stable = true;
     [ObservableProperty] private string _samplingText = "";
     [ObservableProperty] private string _lastSamplingText = "";
+    [ObservableProperty] private string _cb1Text = "";
     [ObservableProperty] private bool _dreaming;
     [ObservableProperty] private string _currentDream = "";
     [ObservableProperty] private string _currentDreamSeeds = "";
@@ -543,6 +547,8 @@ public sealed partial class MainViewModel : ObservableObject
             CursorText = $"tick {f.Tick:N0}";
             var next = Sampling.Compute(f.C, _config.Sampling);
             SamplingText = $"T {next.Temperature:0.00}   top-p {next.TopP:0.00}   max {next.MaxTokens} tokens";
+            Cb1Text = $"{f.Cb1:+0.000;-0.000}   release NE x{_ecb.Gain(Substance.Norepinephrine, f.Cb1):0.00}, " +
+                $"CORT x{_ecb.Gain(Substance.Cortisol, f.Cb1):0.00}, DA x{_ecb.Gain(Substance.Dopamine, f.Cb1):0.00}";
             for (var k = 0; k < Channels.Count && k < f.M.Length; k++)
             {
                 Channels[k].Value = f.M[k];

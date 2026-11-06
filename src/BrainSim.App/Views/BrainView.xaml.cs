@@ -30,6 +30,12 @@ public partial class BrainView : UserControl
     private const float MaxParticleRate = 300;
 
     private readonly Dictionary<string, (MeshGeometryModel3D Model, PhongMaterial Material, BrainRegion Region)> _regions = [];
+    private readonly Dictionary<string, Color4> _restingEmissive = [];
+
+    // Regions dense in CB1. The first ones keep their resting color; the others are recolored every frame first.
+    private static readonly string[] Cb1Resting = ["caudate_l", "caudate_r", "putamen_l", "putamen_r", "cerebellum"];
+    private static readonly string[] Cb1Recolored = ["amygdala_l", "amygdala_r", "hippocampus_l", "hippocampus_r"];
+    private const double Cb1FullGlow = 0.15; // about the tone with 2-AG at twice its resting level
     private readonly List<(MeshGeometryModel3D Model, PhongMaterial Material, Substance Substance, bool Hpa)> _nuclei = [];
     private readonly Stopwatch _clock = Stopwatch.StartNew();
     private readonly double[] _release = new double[Substances.Count]; // smoothed release flux per substance, per second
@@ -120,6 +126,7 @@ public partial class BrainView : UserControl
                 PostEffects = region.Group switch { "gland" => "bloom", "cortex" => "rim", _ => string.Empty },
             };
             _regions[region.Key] = (model, material, region);
+            _restingEmissive[region.Key] = material.EmissiveColor;
             Viewport.Items.Add(model);
         }
 
@@ -225,7 +232,46 @@ public partial class BrainView : UserControl
         }
 
         UpdateCortex(frame, dt);
+        ApplyCb1(frame);
         UpdateLighting(frame);
+    }
+
+    /// <summary>
+    /// The endocannabinoids have no source nucleus, so the regions dense in CB1 take a lime tint with CB1 tone, mixed
+    /// into whatever they show this frame, and dim a little below rest (D-36). The basal ganglia and the cerebellum are
+    /// not recolored every frame, so they start from their resting color and the tint never builds up.
+    /// </summary>
+    private void ApplyCb1(TickRecord frame)
+    {
+        var tone = (float)Math.Clamp(frame.Cb1 / Cb1FullGlow, -1, 1);
+        var lime = Rgb(Palette.Hex(Substance.Arachidonoylglycerol));
+        foreach (var (key, (_, material, _)) in _regions)
+        {
+            Color4 c;
+            var strength = 0.3f;
+            if (Cb1Resting.Contains(key))
+            {
+                c = _restingEmissive[key];
+            }
+            else if (Cb1Recolored.Contains(key))
+            {
+                c = material.EmissiveColor;
+            }
+            else if (key.StartsWith("frontal", StringComparison.Ordinal))
+            {
+                c = material.EmissiveColor;
+                strength = 0.12f; // a large shell in front of everything else: a faint tint is enough
+            }
+            else
+            {
+                continue;
+            }
+
+            var add = tone * strength;
+            material.EmissiveColor = tone >= 0
+                ? new Color4(c.Red + lime.X * add, c.Green + lime.Y * add, c.Blue + lime.Z * add, 1)
+                : new Color4(c.Red * (1 + 0.3f * tone), c.Green * (1 + 0.3f * tone), c.Blue * (1 + 0.3f * tone), 1);
+        }
     }
 
     /// <summary>
@@ -406,7 +452,11 @@ public partial class BrainView : UserControl
             _ when key.StartsWith("frontal", StringComparison.Ordinal) => [Substance.Dopamine, Substance.Norepinephrine, Substance.Gaba],
             _ => [Substance.Norepinephrine, Substance.Gaba],
         };
-        return "\n" + string.Join("   ", shown.Select(s => $"{s.Abbreviation()} {f.C[(int)s]:0.00}"));
+        var text = "\n" + string.Join("   ", shown.Select(s => $"{s.Abbreviation()} {f.C[(int)s]:0.00}"));
+        var cb1Dense = Cb1Resting.Contains(key) || Cb1Recolored.Contains(key) || key.StartsWith("frontal", StringComparison.Ordinal);
+        return cb1Dense
+            ? text + $"\nAEA {f.C[(int)Substance.Anandamide]:0.00}   2-AG {f.C[(int)Substance.Arachidonoylglycerol]:0.00}   CB1 tone {f.Cb1:+0.00;-0.00}"
+            : text;
     }
 
     private static string RegionName(string key)
