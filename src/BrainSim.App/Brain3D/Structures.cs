@@ -50,10 +50,11 @@ public static class Structures
             : text;
     }
 
+    /// <summary>The anatomical name, with the side for keys ending in _l or _r.</summary>
     public static string Name(string key)
     {
         var side = key.EndsWith("_l", StringComparison.Ordinal) ? " (left)" : key.EndsWith("_r", StringComparison.Ordinal) ? " (right)" : "";
-        var name = key.TrimEnd('l', 'r').TrimEnd('_') switch
+        var name = (side.Length > 0 ? key[..^2] : key) switch
         {
             "frontal" => "Frontal lobe",
             "parietal" => "Parietal lobe",

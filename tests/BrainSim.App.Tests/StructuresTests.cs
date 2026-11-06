@@ -30,6 +30,21 @@ public class StructuresTests
     public void Names_read_like_anatomy(string key, string name) => Assert.Equal(name, Structures.Name(key));
 
     [Theory]
+    [InlineData("pineal", "Pineal gland")]
+    [InlineData("orbital", "Orbital gyri")]
+    [InlineData("adrenal", "Adrenal glands (HPA axis, not to scale)")]
+    public void Keys_that_end_in_l_or_r_keep_their_name(string key, string name) => Assert.Equal(name, Structures.Name(key));
+
+    [Fact]
+    public void Every_structure_in_brain_bin_has_a_readable_name()
+    {
+        var keys = Model.Value.Regions.Select(r => r.Key).Concat(Structures.Nuclei.Select(n => n.Anchor));
+
+        // A raw key comes back lowercase or with underscores when the name table misses it.
+        Assert.All(keys, k => Assert.Matches(@"^[A-Z][^_]*$", Structures.Name(k)));
+    }
+
+    [Theory]
     [InlineData("pineal", "\nMEL 2.00")]
     [InlineData("amygdala_l", "\nCORT 1.20   NE 1.50\nAEA 1.00   2-AG 1.00   CB1 tone 0.00")]
     [InlineData("thalamus_r", "\nNE 1.50   GABA 1.00")]
