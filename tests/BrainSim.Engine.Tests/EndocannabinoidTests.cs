@@ -1,6 +1,8 @@
 using BrainSim.Engine.Appraisal;
 using BrainSim.Engine.Config;
 using BrainSim.Engine.Endocannabinoids;
+using BrainSim.Engine.Llm;
+using BrainSim.Engine.Memory;
 using BrainSim.Engine.Receptors;
 
 namespace BrainSim.Engine.Tests;
@@ -26,6 +28,130 @@ public class EndocannabinoidTests
 
         Assert.Equal(0.0, ecb.Cb1);
         Assert.All(Substances.All, s => Assert.Equal(1.0, ecb.Gain(s)));
+        Assert.Equal(Config.Dreams.Detension, ecb.Detension(Config.Dreams.Detension));
+    }
+
+    [Fact]
+    public void Low_aea_makes_sleep_harder()
+    {
+        var rest = new Brain(Config, Noon);
+        var stressed = new Brain(Config, Noon);
+        stressed.Chemistry.Hold[Aea] = 0.5;
+
+        rest.Tick(Noon.AddSeconds(0.1));
+        stressed.Tick(Noon.AddSeconds(0.1));
+
+        // P gains sleep_pressure * (AEA - its target): the daily rhythm alone does not move P, a dip below it does.
+        var expected = Config.Endocannabinoid.SleepPressure * (0.5 - rest.Chemistry.C[Aea]);
+        Assert.Equal(expected, stressed.SleepPressure - rest.SleepPressure, 3);
+        Assert.True(expected < 0);
+    }
+
+    [Fact]
+    public void Short_night_makes_the_2ag_peak_higher_and_later()
+    {
+        var full = DayAfter(awakeUntilHour: null);
+        var shortNight = DayAfter(awakeUntilHour: 3.0);
+
+        // Hanlon et al. 2016: after short nights the 2-AG peak is higher and comes later.
+        Assert.True(shortNight.Peak > full.Peak + 0.05, $"peak {shortNight.Peak} after a short night, {full.Peak} after a full one");
+        Assert.True(shortNight.At - full.At >= TimeSpan.FromHours(1), $"peak at {shortNight.At} after a short night, {full.At} after a full one");
+    }
+
+    [Fact]
+    public void Held_2ag_builds_cb1_tolerance_and_recovers()
+    {
+        var receptors = new ReceptorState(Config);
+        var ecb = new EndocannabinoidSystem(Config);
+        var c = Enumerable.Repeat(1.0, Substances.Count).ToArray();
+        c[TwoAg] = 1.4;
+        ecb.Compute(c, receptors);
+        var first = ecb.Cb1;
+
+        for (var t = 0; t < 200_000; t++)
+        {
+            receptors.Step(c);
+        }
+
+        ecb.Compute(c, receptors);
+
+        // Hirvonen et al. 2012: about 20% fewer CB1 receptors with chronic use. The brake fades with them.
+        Assert.InRange(receptors.Rho[TwoAg], 0.75, 0.85);
+        Assert.True(ecb.Cb1 < first / 2, $"CB1 tone {ecb.Cb1} after the hold, {first} before");
+
+        c[TwoAg] = 1.0;
+        for (var t = 0; t < 200_000; t++)
+        {
+            receptors.Step(c);
+        }
+
+        Assert.True(receptors.Rho[TwoAg] > 0.95, $"rho only back to {receptors.Rho[TwoAg]}");
+    }
+
+    [Fact]
+    public void Ecb_speeds_up_dream_detension()
+    {
+        var night = new DateTime(2026, 11, 5, 1, 0, 0);
+        var fake = new FakeLmStudio(replyTokens: 40);
+        var client = new LmStudioClient(new HttpClient(fake) { BaseAddress = new Uri(Config.Llm.BaseUrl) }, Config.Llm);
+        var agent = new Agent(Config, client, new Dictionary<string, LinearProbe>(), () => night);
+        var stressed = Enumerable.Repeat(1.0, Substances.Count).ToArray();
+        stressed[Ne] = 2.0;
+        stressed[Cort] = 1.5;
+        string[] texts = ["the argument about the broken window", "someone shouting in the hallway", "a door slammed at night"];
+        foreach (var (text, i) in texts.Select((t, i) => (t, i)))
+        {
+            agent.Memory.AddEpisode(text, null, stressed, default, night.AddHours(-3 + i));
+        }
+
+        double Tag(string text) => agent.Memory.Snapshot().Single(c => c.Text == text).Tag;
+        var before = texts.ToDictionary(t => t, Tag);
+        agent.Brain.Chemistry[Substance.Adenosine] = Config.Sleep.ForcedAdenosine; // sleep on the next tick
+
+        // 2-AG high from just before the first REM (minutes 81 to 90) to its end. Held for hours, CB1 tolerance
+        // would cancel the tone (rho falls toward 0.5), so the hold is short.
+        agent.Brain.AdvanceTo(night.AddMinutes(75));
+        agent.Brain.Chemistry.Hold[TwoAg] = 2.0;
+        agent.Brain.AdvanceTo(night.AddMinutes(91));
+
+        // Marsicano et al. 2002: CB1 drives the extinction of aversive memories. Each seed loses more than the 20% of T9.
+        var dream = Assert.Single(agent.Dreamer.Journal);
+        Assert.Equal(texts.Order(), dream.Seeds.Order());
+        Assert.All(texts, t => Assert.True(Tag(t) < before[t] * (1 - Config.Dreams.Detension) - 1e-9, $"'{t}': tag {Tag(t)} from {before[t]}"));
+    }
+
+    /// <summary>
+    /// From 07:00 on day 0 to the evening of day 1. With <paramref name="awakeUntilHour"/> the user keeps the agent up
+    /// with a message every 10 minutes until that hour of the night. Both wake by 07:30 on day 1.
+    /// </summary>
+    private static (double Peak, TimeSpan At) DayAfter(double? awakeUntilHour)
+    {
+        var start = new DateTime(2026, 11, 5, 7, 0, 0);
+        var brain = new Brain(Config, start);
+        if (awakeUntilHour is { } hour)
+        {
+            brain.AdvanceTo(start.AddHours(14));
+            for (var t = start.AddHours(14); t < start.Date.AddDays(1).AddHours(hour); t = t.AddMinutes(10))
+            {
+                brain.AdvanceTo(t);
+                brain.OnUserMessage(t);
+            }
+        }
+
+        var wake = start.Date.AddDays(1).AddHours(7.5);
+        brain.AdvanceTo(wake);
+        brain.OnUserMessage(wake);
+        var (peak, at) = (0.0, wake);
+        for (var t = wake; t < wake.AddHours(13); t = t.AddMinutes(1))
+        {
+            brain.AdvanceTo(t);
+            if (brain.Chemistry.C[TwoAg] > peak)
+            {
+                (peak, at) = (brain.Chemistry.C[TwoAg], t);
+            }
+        }
+
+        return (peak, at - wake.Date);
     }
 
     [Fact]

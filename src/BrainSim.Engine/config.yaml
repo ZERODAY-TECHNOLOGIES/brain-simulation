@@ -72,6 +72,8 @@ modulation:
       - { substance: GABA, emax: 0.5 }
       - { substance: CORT, emax: -0.5 }
       - { substance: NE,   emax: -0.5 }
+      - { substance: AEA,  emax: 0.3 }    # ours, not in spec: eCB tone is anxiolytic (D-36)
+      - { substance: 2-AG, emax: 0.2 }    # ours, not in spec (D-36)
     curious_apathetic:
       - { substance: DA,   emax: 0.5 }
       - { substance: ACh,  emax: 0.5 }
@@ -105,6 +107,7 @@ modulation:
       - { substance: DA,   emax: 0.5 }
       - { substance: NE,   emax: 0.5 }
       - { substance: CORT, emax: -0.5 }   # ours, not in spec: stress weakens encoding (docs/memory.md)
+      - { substance: 2-AG, emax: -0.3 }   # ours, not in spec: CB1 impairs hippocampal encoding (D-36)
     memory_noise:
       - { substance: NE,   emax: 0.5 }
     memory_retrieval_threshold:
@@ -233,3 +236,15 @@ endocannabinoid:
     DA: 1.0
   gain_min: 0.25
   gain_max: 2.0
+  sleep_pressure: 0.5         # P += this * (AEA - its target): AEA promotes sleep, a stress dip delays it
+  extinction_gain: 1.0        # dream detension x (1 + this * max(0, cb1)): CB1 drives extinction
+  detension_max: 0.5
+  full_night_hours: 8         # sleep debt = share of this missed last night
+  two_ag_rhythm:              # Hanlon et al. 2016: peak early afternoon, after 4.5 h nights about a third higher and 1.5 h later
+    amplitude: 0.3
+    peak_hour: 13.5
+    debt_amplitude: 0.75
+    debt_delay_hours: 3.4
+  aea_rhythm:                 # Vaughn et al. 2010: highest around waking
+    amplitude: 0.15
+    peak_hour: 7.0

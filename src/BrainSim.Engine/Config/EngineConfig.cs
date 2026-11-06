@@ -171,6 +171,30 @@ public sealed record EndocannabinoidConfig
     public Dictionary<string, double> ReleaseGain { get; init; } = [];
     public double GainMin { get; init; } = 0.25;
     public double GainMax { get; init; } = 2.0;
+
+    /// <summary>P gains sleep_pressure * (AEA - its target): AEA promotes sleep, and stress (AEA below target) delays it.</summary>
+    public double SleepPressure { get; init; } = 0.5;
+
+    /// <summary>Dream detension is multiplied by 1 + extinction_gain * max(0, cb1), up to detension_max.</summary>
+    public double ExtinctionGain { get; init; } = 1.0;
+    public double DetensionMax { get; init; } = 0.5;
+
+    /// <summary>A night this long or longer leaves no sleep debt for the 2-AG rhythm.</summary>
+    public double FullNightHours { get; init; } = 8;
+    public RhythmConfig TwoAgRhythm { get; init; } = new();
+    public RhythmConfig AeaRhythm { get; init; } = new();
+}
+
+/// <summary>
+/// A daily rhythm of a target: amplitude * cos(2 pi (phi - peak) / 24). Sleep debt d in [0, 1] (the share of a full
+/// night missed) multiplies the amplitude by 1 + debt_amplitude * d and moves the peak debt_delay_hours * d later.
+/// </summary>
+public sealed record RhythmConfig
+{
+    public double Amplitude { get; init; }
+    public double PeakHour { get; init; } = 12;
+    public double DebtAmplitude { get; init; }
+    public double DebtDelayHours { get; init; }
 }
 
 public sealed record DreamConfig

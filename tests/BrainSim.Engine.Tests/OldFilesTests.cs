@@ -43,6 +43,18 @@ public class OldFilesTests
     }
 
     [Fact]
+    public void Old_checkpoint_json_has_no_sleep_debt()
+    {
+        var brain = new Brain(EngineConfig.LoadDefault(), new DateTime(2026, 11, 6, 12, 0, 0));
+        var json = System.Text.Json.Nodes.JsonNode.Parse(System.Text.Json.JsonSerializer.Serialize(brain.Save()))!.AsObject();
+        json.Remove("LastSleepHours");
+
+        var old = System.Text.Json.JsonSerializer.Deserialize<BrainCheckpoint>(json.ToJsonString())!;
+
+        Assert.Equal(EngineConfig.LoadDefault().Endocannabinoid.FullNightHours, old.LastSleepHours);
+    }
+
+    [Fact]
     public async Task Journal_without_ecb_columns_reads_with_baseline_values()
     {
         var path = Path.Combine(Path.GetTempPath(), $"brainsim-old-journal-{Guid.NewGuid():N}.parquet");

@@ -129,7 +129,7 @@ public sealed class Dreamer
 
     private void Begin(Brain brain)
     {
-        var seeds = _memory.DrawByTag(_random.Next(_config.SeedMin, _config.SeedMax + 1), _random, _config.Detension);
+        var seeds = _memory.DrawByTag(_random.Next(_config.SeedMin, _config.SeedMax + 1), _random, brain.Endocannabinoids.Detension(_config.Detension));
         if (seeds.Count == 0)
         {
             return; // nothing to dream about yet

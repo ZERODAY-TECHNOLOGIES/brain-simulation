@@ -13,10 +13,12 @@ public sealed class EndocannabinoidSystem
     private readonly double[] _release = new double[Substances.Count];
     private readonly double _gainMin;
     private readonly double _gainMax;
+    private readonly EndocannabinoidConfig _config;
 
     public EndocannabinoidSystem(EngineConfig config)
     {
         var ecb = config.Endocannabinoid;
+        _config = ecb;
         _cb1 = [.. ecb.Cb1.Select(ChannelTerm.From)];
         foreach (var (substance, r) in ecb.ReleaseGain)
         {
@@ -48,4 +50,24 @@ public sealed class EndocannabinoidSystem
     /// <summary>The factor at a given tone, for a frame read from the journal.</summary>
     public double Gain(Substance substance, double cb1) =>
         Math.Clamp(1 + _release[(int)substance] * cb1, _gainMin, _gainMax);
+
+    /// <summary>The share of an emotional tag a dream seed loses: CB1 drives extinction (Marsicano et al. 2002).</summary>
+    public double Detension(double detension) =>
+        Math.Min(_config.DetensionMax, detension * (1 + _config.ExtinctionGain * Math.Max(0, Cb1)));
+
+    /// <summary>P term: AEA promotes sleep. Measured from its target, so the daily rhythm alone does not move P.</summary>
+    public double SleepPressure(double aea, double aeaTarget) => _config.SleepPressure * (aea - aeaTarget);
+
+    /// <summary>Where the 2-AG target sits above or below rest at clock phase <paramref name="phi"/>.</summary>
+    public double TwoAgRhythm(double phi, double lastSleepHours)
+    {
+        var debt = Math.Clamp(1 - lastSleepHours / _config.FullNightHours, 0, 1);
+        return Rhythm(_config.TwoAgRhythm, phi, debt);
+    }
+
+    /// <summary>Where the AEA target sits above or below rest at clock phase <paramref name="phi"/>.</summary>
+    public double AeaRhythm(double phi) => Rhythm(_config.AeaRhythm, phi, 0);
+
+    private static double Rhythm(RhythmConfig r, double phi, double debt) =>
+        r.Amplitude * (1 + r.DebtAmplitude * debt) * Math.Cos(2 * Math.PI * (phi - r.PeakHour - r.DebtDelayHours * debt) / 24);
 }

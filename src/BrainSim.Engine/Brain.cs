@@ -29,7 +29,8 @@ public sealed record BrainCheckpoint(
     ChemistrySnapshot Chemistry,
     double[] MeanC,
     double[] Rho,
-    ClockSnapshot Clock);
+    ClockSnapshot Clock,
+    double LastSleepHours = 8);
 
 /// <summary>
 /// Everything that runs on ticks, without the LLM: chemistry, receptors, modulation, the clock and sleep.
@@ -40,6 +41,8 @@ public sealed class Brain
     private const int Ado = (int)Substance.Adenosine;
     private const int Cort = (int)Substance.Cortisol;
     private const int Mel = (int)Substance.Melatonin;
+    private const int Aea = (int)Substance.Anandamide;
+    private const int TwoAg = (int)Substance.Arachidonoylglycerol;
 
     private readonly EngineConfig _config;
     private readonly (int Index, double Value)[][] _phaseTargets;
@@ -66,6 +69,7 @@ public sealed class Brain
         _awakeningSource = (config.Circadian.CortisolAwakening - config.Concentration.Baseline) * k / (1 - Math.Exp(-k * ticks));
         Now = start;
         _lastUserMessage = start;
+        LastSleepHours = config.Endocannabinoid.FullNightHours;
 
         _phaseTargets = new (int, double)[Enum.GetValues<SleepPhase>().Length][];
         foreach (var phase in Enum.GetValues<SleepPhase>())
@@ -90,6 +94,9 @@ public sealed class Brain
     public DateTime? SleepOnset { get; private set; }
     public bool Asleep => Phase != SleepPhase.Wake;
 
+    /// <summary>How long the last sleep lasted. Its shortfall from a full night is the sleep debt the 2-AG rhythm sees (D-36).</summary>
+    public double LastSleepHours { get; private set; }
+
     /// <summary>Set while a response is streaming. Sleep is never entered mid-response.</summary>
     public bool IsGenerating { get; set; }
 
@@ -98,9 +105,13 @@ public sealed class Brain
     /// <summary>Raised after every tick, with the generated token when the tick is one.</summary>
     public event Action<Brain, string?>? Ticked;
 
-    /// <summary>Net sleep pressure P = (ADO - b) - C(phi). Measured from baseline, see D-21.</summary>
+    /// <summary>
+    /// Net sleep pressure P = (ADO - b) - C(phi), measured from baseline (D-21), plus the AEA term: AEA above its
+    /// target promotes sleep, below it (stress) delays it (D-36).
+    /// </summary>
     public double SleepPressure =>
-        Chemistry.C[Ado] - Chemistry.Resting[Ado] - CircadianClock.Alertness(Clock.Phase(Now));
+        Chemistry.C[Ado] - Chemistry.Resting[Ado] - CircadianClock.Alertness(Clock.Phase(Now))
+        + Endocannabinoids.SleepPressure(Chemistry.C[Aea], Chemistry.Baseline[Aea]);
 
     /// <summary>Advances one tick that happens at <paramref name="now"/>. <paramref name="token"/> is set for generated tokens.</summary>
     public void Tick(DateTime now, string? token = null)
@@ -124,7 +135,7 @@ public sealed class Brain
 
     public BrainCheckpoint Save() => new(
         Now, Phase, Cycle, SleepOnset, _lastUserMessage, _awakeningUntil,
-        Chemistry.Save(), [.. Receptors.MeanC], [.. Receptors.Rho], Clock.Save());
+        Chemistry.Save(), [.. Receptors.MeanC], [.. Receptors.Rho], Clock.Save(), LastSleepHours);
 
     public void Restore(BrainCheckpoint checkpoint)
     {
@@ -134,6 +145,7 @@ public sealed class Brain
         SleepOnset = checkpoint.SleepOnset;
         _lastUserMessage = checkpoint.LastUserMessage;
         _awakeningUntil = checkpoint.AwakeningUntil;
+        LastSleepHours = checkpoint.LastSleepHours;
         Chemistry.Restore(checkpoint.Chemistry);
         Chemistry.Asleep = Asleep;
         Array.Fill(Receptors.MeanC, Receptors.Baseline);
@@ -177,8 +189,11 @@ public sealed class Brain
             b[index] = value;
         }
 
-        // CORT and MEL follow the clock, not the sleep phase.
-        b[Cort] = Clock.CortisolTarget(Clock.Phase(Now));
+        // CORT, MEL and the endocannabinoids follow the clock, not the sleep phase.
+        var phi = Clock.Phase(Now);
+        b[Cort] = Clock.CortisolTarget(phi);
+        b[Aea] += Endocannabinoids.AeaRhythm(phi);
+        b[TwoAg] += Endocannabinoids.TwoAgRhythm(phi, LastSleepHours);
         Chemistry.Source[Cort] = Now < _awakeningUntil ? _awakeningSource : 0;
         Chemistry.Source[Mel] = Clock.MelatoninProduction(Now);
 
@@ -231,6 +246,7 @@ public sealed class Brain
     private void Wake(TransitionKind kind)
     {
         var from = Phase;
+        LastSleepHours = (Now - SleepOnset!.Value).TotalHours;
         Phase = SleepPhase.Wake;
         Cycle = 0;
         SleepOnset = null;
