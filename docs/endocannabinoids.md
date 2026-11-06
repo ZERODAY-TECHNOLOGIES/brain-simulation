@@ -4,9 +4,9 @@ The endocannabinoid system (eCB) is not in the spec. We add it because it is the
 brake on stress and arousal, it ties together pieces the engine already has (the HPA axis,
 reward, sleep pressure, memory and dreams), and it is the base the drugs phase needs.
 
-Status: design approved in conversation on 2026-11-06 (two substances, a multiplicative
-brake on release plus W terms, Phase 8 with drugs moved to Phase 9, a glow in the 3D brain).
-This document awaits review. Decision: D-36.
+Status: built on 2026-11-06 (two substances, a multiplicative brake on release plus W terms,
+Phase 8 with drugs moved to Phase 9, a glow in the 3D brain). Decision: D-36, which also lists
+what calibration changed.
 
 ## Why it needs its own mechanism
 
@@ -138,9 +138,10 @@ and CORT stays up longer, as in Hill et al. 2011.
 Targets set in `Brain.ApplyTargets`, next to the cortisol and melatonin ones. They follow the
 clock, not the sleep phase:
 
-- **2-AG:** `b = 1 + A(ADO) * cos(2 pi (h - h_peak(ADO)) / 24)`, with peak at 13:30. Sleep debt
-  (ADO above rest after waking) raises the amplitude and moves the peak later. Hanlon et al.
-  2016 report a later, longer peak after 4 nights of 4.5 hours of sleep.
+- **2-AG:** `b = 1 + A(d) * cos(2 pi (h - h_peak(d)) / 24)`, with peak at 13:30. Sleep debt d is
+  the share of an 8-hour night the last sleep missed. It raises the amplitude by up to 75% and
+  moves the peak up to 3.4 hours later. Hanlon et al. 2016 report a later, longer peak after
+  4 nights of 4.5 hours of sleep. ADO cannot measure the debt: it drains in minutes of sleep.
 - **AEA:** a smaller rhythm with its peak at waking (07:00), after Vaughn et al. 2010.
 
 Both moved targets show up as modulation, the same way the cortisol rhythm does, because
@@ -166,8 +167,8 @@ gamma is the same everywhere.
 
 ## Configuration
 
-New keys, all `# ours, not in spec`. The numbers are starting points. Calibration fixes them
-against the acceptance tests and records the result in D-36.
+New keys, all `# ours, not in spec`, with the values calibration settled on (D-36 records what
+changed on the way).
 
 ```yaml
 half_life:
@@ -200,8 +201,9 @@ endocannabinoid:
   sleep_pressure: 0.5
   extinction_gain: 1.0
   detension_max: 0.5
-  rhythm_2ag:  { amplitude: 0.3, peak_hour: 13.5, debt_amplitude: 0.5, debt_delay_hours: 1.5 }
-  rhythm_aea:  { amplitude: 0.15, peak_hour: 7.0 }
+  full_night_hours: 8
+  two_ag_rhythm: { amplitude: 0.3, peak_hour: 13.5, debt_amplitude: 0.75, debt_delay_hours: 3.4 }
+  aea_rhythm:    { amplitude: 0.15, peak_hour: 7.0 }
 ```
 
 ## Data and old files

@@ -2,8 +2,8 @@
 
 A Windows desktop app that runs a neurochemical agent and shows its whole "brain" live:
 the language cortex (an LLM), the 10-substance chemical state, receptors and tolerance,
-effectors, the circadian clock and simulated pineal gland, sleep stages, dreams and,
-later, ACT-R memory.
+effectors, the circadian clock and simulated pineal gland, sleep stages, dreams, ACT-R
+memory and, beyond the spec, the endocannabinoid system.
 
 The source of truth for the model is the technical spec (Romanian):
 [spec/agent-neurochimic-spec.pdf](spec/agent-neurochimic-spec.pdf).
@@ -53,7 +53,7 @@ Each phase ends with something you can run and see.
 
 ## Status
 
-As of 2026-11-04:
+As of 2026-11-06:
 - **Phase 0:** done. LM Studio and Helix Toolkit spikes both pass (results in
   [decisions.md](decisions.md#lm-studio-spike-results-2026-11-04)). The Helix spike lives in
   `spikes/HelixSpike`, outside the solution, and is not production code.
@@ -87,6 +87,13 @@ As of 2026-11-04:
   them, strengthened by recall and by NREM replay, and saved in `memory.bin`. Familiarity
   damps surprise; dreams draw on the episodes. A Memory panel, `M n` in the chat and a
   hippocampus pulse show it. T7 passes with fakes and against the real models (D-33, D-34).
+
+- **Phase 8:** done. The endocannabinoid system, beyond the spec: AEA and 2-AG as substances 11
+  and 12, CB1 tone as a brake on stress release (NE and CORT down, DA up), 2-AG made on demand and
+  recruited by cortisol, which it then brings down, daily rhythms that sleep debt shifts, AEA in
+  sleep pressure, weaker encoding and faster extinction in dreams, CB1 tolerance. After a threat,
+  CORT returns to baseline twice as fast as with eCB held at rest. A CB1 row in Effectors and a
+  lime glow on the CB1-dense regions show it (D-36).
 
 Run the app with `dotnet run --project src/BrainSim.App` (LM Studio on, both models loaded).
 Run the tests with `dotnet test --solution BrainSim.slnx`. To also run the scenario tests

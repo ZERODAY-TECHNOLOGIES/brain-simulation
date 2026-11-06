@@ -375,9 +375,24 @@ See [conventions.md](conventions.md#git).
   AEA adds to sleep pressure P instead of driving ADO through W, because awake ADO has no
   decay and any loop back to it breaks the stability check. eCB weakens encoding and speeds up
   dream detension. Drugs move to Phase 9. Design: [endocannabinoids.md](endocannabinoids.md).
-- **Consequence:** Every value is ours, not the spec's, and is calibrated against the tests
-  in the design. Checkpoints and journals grow to 12 substances; older ones load with eCB at
-  baseline. Status: design awaiting review.
+- **Consequence:** Every value is ours, not the spec's, calibrated against the tests in the
+  design. Checkpoints and journals grow to 12 substances; older ones load with eCB at rest.
+- **What calibration and building changed:**
+  - 2-AG on demand is W from NE and DA (0.003, 0.002), not an impulse released alongside each
+    appraisal impulse: the impulse peaked at the same tick as NE. Through W it peaks at tick 135,
+    after NE at tick 10.
+  - Brake r = -2 for NE and CORT, +1 for DA. 2-AG held at 2.0 lowers the NE and CORT peaks of a
+    threat by 29% and 31%. After a threat the CORT excess halves in 8,624 ticks, against 17,104
+    with AEA and 2-AG held at rest (Hill et al. 2011 report a longer response with CB1 blocked).
+  - Sleep debt is the length of the last sleep, kept in the checkpoint, not ADO at waking: ADO
+    drains in minutes of sleep. After a full night the 2-AG peak is 1.18 at 12:36 (Hanlon et al.
+    2016: about 12:30); after a night that starts at 03:00 it is 1.27 at 15:04.
+  - P uses AEA's deviation from its rhythm target, so the rhythm alone leaves T8 alone.
+  - A long hold of 2-AG builds CB1 tolerance that cancels the tone (rho toward 0.5 at 2.0),
+    as Hirvonen et al. 2012 would predict; at 1.4, rho settles near 0.8.
+  - In 3D the frontal cortex takes a fainter tint (0.12) than the subcortical regions (0.3): at
+    0.5 it turned into an opaque lime shell.
+- **Status:** done.
 
 ## Open
 

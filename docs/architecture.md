@@ -46,6 +46,8 @@ brain-simulation/
       Circadian/               clock, pineal, light, sleep gate(spec: circadian.py)
       Sleep/                   cycles, phase targets, wake     (spec: sleep.py)
       Dreams/                  seeds, REM generation, journal  (spec: dreams.py)
+      Memory/                  ACT-R declarative memory        (memory.md)
+      Endocannabinoids/        CB1 tone and the release brake  (endocannabinoids.md, not in spec)
       Llm/                     LM Studio client (chat stream, embeddings, logprobs)
       Journal/                 Parquet writer and reader       (spec: jurnal)
       Engine.cs                the execution loop              (spec: loop.py)
@@ -84,12 +86,13 @@ Same order as the spec, with reduced-mode changes marked.
    recall come from memory (memory.md): the facts the message cues go into the request.
 3. Compute S, r, A, W. r is the sentiment of this message, applied to the previous
    response: delta = r - V.
-4. Schedule the impulses over the next 10 ticks.
+4. Schedule the impulses over the next 10 ticks, each scaled by the CB1 brake
+   (endocannabinoids.md). Lab injections are not braked.
 5. *(Reduced mode)* Compute T, top-p and max length from the current chemistry and start
    the streaming request (D-04).
 
 **On each streamed token**
-6. Integrate one tick: concentrations first, then C-bar and rho.
+6. Integrate one tick: concentrations first, then C-bar and rho, then CB1 tone.
 7. Compute Delta and m_k for every channel, including the six steering directions, which
    are shown in the UI but not applied (no hook).
 8. Append the token, write the journal row, publish a frame.
@@ -97,7 +100,7 @@ Same order as the spec, with reduced-mode changes marked.
 
 **After the response**
 10. ADO += 0.001 x E. Update V and the surprise running stats.
-11. Check the sleep decision: P = ADO - C(phi), MEL level, user idle time.
+11. Check the sleep decision: P = ADO - C(phi) plus the AEA term, MEL level, user idle time.
 12. Store the turn as an episode and extract its facts in the background (memory.md).
 13. Save the checkpoint and `memory.bin`.
 
@@ -125,6 +128,7 @@ What the spec asks for and what we can do with LM Studio.
 | T1, T4, T6, T8 | Apply | |
 | T2, T3, T7 | Do not apply | Need hooks or training |
 | T5 | Changes meaning | Only sampling differs between the chemistry and the prompt control |
+| Endocannabinoids (AEA, 2-AG, CB1) | Ours | Not in the spec. Phase 8, D-36, [endocannabinoids.md](endocannabinoids.md) |
 | T9 | Partial | Tags drop only with REM and a forced wake from REM keeps the dream (tested). Perplexity needs logprobs the completion endpoint does not give (D-30) |
 
 Upgrade path: a second backend running transformers (Python or TorchSharp) behind the
@@ -155,9 +159,9 @@ reads tokens from the journal.
 
 | What | Format | When |
 |---|---|---|
-| Tick journal | Parquet, one row per tick: tick, wall time, phase, C, C-bar, rho, m_k, T, top-p, eta, token | Row group every 1,000 ticks |
+| Tick journal | Parquet, one row per tick: tick, wall time, phase, C, C-bar, rho, m_k, T, top-p, eta, token, CB1 tone. Journals from before Phase 8 read with the endocannabinoids at rest | Row group every 1,000 ticks |
 | Events journal | JSON lines next to the tick journal: tick, time, kind, text, values (messages, Lab actions, sleep transitions, clock changes, errors) (D-25) | Each event, flushed |
-| Checkpoint | JSON: brain state, appraisal state, conversation history, dream journal | After each response and on exit |
+| Checkpoint | JSON: brain state (with the last sleep length), appraisal state, conversation history, dream journal. One from before Phase 8 loads with the endocannabinoids at rest | After each response and on exit |
 | Memory | `memory.bin`, binary: every chunk with its embedding and presentations (memory.md) | After each response, when facts are learned, and on exit |
 | Config | `config.yaml`, versioned in git | Lab can save a copy |
 
