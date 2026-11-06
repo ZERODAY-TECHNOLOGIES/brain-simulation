@@ -364,6 +364,21 @@ See [conventions.md](conventions.md#git).
   memory with embeddings from the old model; the memory thresholds of D-33 were measured on
   nomic-embed and may need recalibrating.
 
+### D-36. Endocannabinoids as Phase 8, beyond the spec
+- **Date:** 2026-11-06
+- **Context:** The spec has ten substances and no endocannabinoid system. eCB is the brain's
+  own brake on stress and arousal, it links the HPA axis, reward, sleep pressure, memory and
+  dreams, and the drugs phase needs it.
+- **Decision:** Two new substances, AEA (tone) and 2-AG (on demand), after the spec's ten.
+  Their CB1 tone scales endogenous release of NE and CORT down and DA up, as a gain in
+  `Appraiser.Release`; W carries only the HPA loop (CORT to 2-AG, 2-AG to CORT) and OXT to AEA.
+  AEA adds to sleep pressure P instead of driving ADO through W, because awake ADO has no
+  decay and any loop back to it breaks the stability check. eCB weakens encoding and speeds up
+  dream detension. Drugs move to Phase 9. Design: [endocannabinoids.md](endocannabinoids.md).
+- **Consequence:** Every value is ours, not the spec's, and is calibrated against the tests
+  in the design. Checkpoints and journals grow to 12 substances; older ones load with eCB at
+  baseline. Status: design awaiting review.
+
 ## Open
 
 No open questions right now.

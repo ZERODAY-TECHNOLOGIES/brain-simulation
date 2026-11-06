@@ -18,6 +18,7 @@ These docs explain how we build it and where we deliberately differ from it.
 | [ui-design.md](ui-design.md) | Layout, panels, visual language, colors, 3D scene and models |
 | [conventions.md](conventions.md) | Code style, project rules, testing, git, writing rules |
 | [memory.md](memory.md) | Phase 7: the ACT-R declarative memory and how E4 drives it |
+| [endocannabinoids.md](endocannabinoids.md) | Phase 8: AEA, 2-AG and CB1 as a brake on release (beyond the spec) |
 
 ## The short version
 
@@ -47,7 +48,8 @@ Each phase ends with something you can run and see.
 | 5. 3D brain | Anatomical meshes, holographic shading, nuclei glow, release particles along pathways | Releasing DA by hand visibly flows from VTA to striatum and cortex |
 | 6. Dreams | REM generation through LM Studio, dream journal, emotional detensioning | T9 passes (the parts that apply in reduced mode) |
 | 7. Memory (ACT-R) | Memory module wired through E4 | T7 passes: a fact told with DA high is recalled after it leaves the context, not with DA low or CORT high |
-| 8. Drugs | Agonists, antagonists, reuptake inhibitors, releasers mapped onto occ, rho, k, g | Only after the validation tests pass |
+| 8. Endocannabinoids | AEA and 2-AG, CB1 tone as a brake on release, the HPA loop, rhythms, effects on memory, dreams and sleep (beyond the spec, D-36) | After a threat, CORT returns to baseline sooner with eCB than with it held at baseline |
+| 9. Drugs | Agonists, antagonists, reuptake inhibitors, releasers mapped onto occ, rho, k, g | Only after the validation tests pass |
 
 ## Status
 
