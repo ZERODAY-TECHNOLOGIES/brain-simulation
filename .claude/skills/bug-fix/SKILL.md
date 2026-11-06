@@ -117,6 +117,11 @@ Traps this repository and this machine already paid for. Add to the list when a 
   not reproducible: never assert on exact LLM text, only on the engine's response to it.
 - **Text written by a script.** A heredoc can put real newlines into a C# string literal (CS1010). Edit C# with the
   Edit tool.
+- **Helix keeps the process alive.** The 3D render host runs a foreground thread from `StartD3D` to `EndD3D`,
+  and nothing calls `EndD3D` on app shutdown, so now and then the process outlives its closed window and keeps
+  `BrainSim.exe` locked. `BrainView` ends it on `Dispatcher.ShutdownStarted`. A hung process: `dotnet tool exec
+  dotnet-stack --yes -- report -p <pid>`, and `dotnet-dump` `clrthreads` for which thread is not background.
+  Search: `Viewport3DX`, `new Thread(`.
 - **Signed number formats.** `"+0.00;-0.00"` turns a tiny negative into `-+0.00`: give every
   signed format a zero section, `"+0.00;-0.00;0.00"` (`53fe834`). Search: `\+0(\.0+)?;-0`.
 - **Windows PowerShell 5.1.** `Get-Content -Raw` returns a PSObject that serializes wrongly in a JSON body; use

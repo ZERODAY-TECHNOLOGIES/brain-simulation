@@ -95,7 +95,17 @@ public partial class BrainView : UserControl
         }
 
         _k = [.. _viewModel.Config.HalfLives().Select(t => Math.Log(2) / t)];
-        Viewport.EffectsManager = new DefaultEffectsManager();
+        var effects = new DefaultEffectsManager();
+        Viewport.EffectsManager = effects;
+
+        // Helix's render host runs a foreground thread from StartD3D until EndD3D. Nothing ends it when the app shuts
+        // down (no Unloaded on shutdown), and then the process outlives its window. End it ourselves.
+        Dispatcher.ShutdownStarted += (_, _) =>
+        {
+            CompositionTarget.Rendering -= OnRendering;
+            Viewport.RenderHost?.EndD3D();
+            effects.Dispose();
+        };
         Viewport.OITRenderMode = OITRenderType.SinglePassWeighted;
         Viewport.MouseMove3D += OnMouseMove3D;
 
