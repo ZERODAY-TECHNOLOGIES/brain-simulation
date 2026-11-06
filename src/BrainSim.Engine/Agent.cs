@@ -160,23 +160,15 @@ public sealed class Agent
     private List<ChatMessage> BuildRequest(IReadOnlyList<string> remembered, string? mood)
     {
         var window = _history.TakeLast(_config.Llm.HistoryMessages).ToList();
-        var system = new StringBuilder(_config.Llm.SystemPrompt);
-        if (mood is not null)
-        {
-            system.Append("\n\n").Append(mood);
-        }
+        var notes = window.Where(m => m.Role == "system").Select(m => m.Content);
+        return [ChatMessage.System(SystemText(mood, remembered, notes)), .. window.Where(m => m.Role != "system")];
+    }
 
-        if (remembered.Count > 0)
-        {
-            system.Append("\n\nThings you remember:\n").AppendJoin("\n", remembered.Select(f => "- " + f));
-        }
-
-        foreach (var note in window.Where(m => m.Role == "system"))
-        {
-            system.Append("\n\n").Append(note.Content);
-        }
-
-        return [ChatMessage.System(system.ToString()), .. window.Where(m => m.Role != "system")];
+    /// <summary>The persona, then the mood note, the recalled facts and the system notes, as one text.</summary>
+    private string SystemText(string? mood, IReadOnlyList<string> remembered, IEnumerable<string> notes)
+    {
+        var recalled = remembered.Count > 0 ? "Things you remember:\n" + string.Join("\n", remembered.Select(f => "- " + f)) : null;
+        return string.Join("\n\n", new[] { _config.Llm.SystemPrompt, mood, recalled }.Concat(notes).OfType<string>());
     }
 
     /// <summary>Steps 6 to 8: one brain tick per streamed token.</summary>

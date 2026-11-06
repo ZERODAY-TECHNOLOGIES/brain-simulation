@@ -57,9 +57,14 @@ public sealed record EngineConfig
         ParseSubstances(Endocannabinoid.ReleaseGain.Keys);
         ValidateTable("appraisal signal", "gains", Appraisal.Gains, Signals);
         ValidateTable("sleep phase", "phase_targets", Sleep.PhaseTargets, SleepPhases);
-        foreach (var channel in Mood.Channels.Keys.Where(c => !Modulation.Channels.ContainsKey(c)))
+        ValidateMood();
+    }
+
+    private void ValidateMood()
+    {
+        if (Mood.Channels.Keys.FirstOrDefault(c => !Modulation.Channels.ContainsKey(c)) is { } unknown)
         {
-            throw new InvalidDataException($"config.yaml: mood channel '{channel}' is not a modulation channel.");
+            throw new InvalidDataException($"config.yaml: mood channel '{unknown}' is not a modulation channel.");
         }
     }
 
