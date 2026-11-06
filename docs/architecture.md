@@ -88,13 +88,14 @@ Same order as the spec, with reduced-mode changes marked.
    response: delta = r - V.
 4. Schedule the impulses over the next 10 ticks, each scaled by the CB1 brake
    (endocannabinoids.md). Lab injections are not braked.
-5. *(Reduced mode)* Compute T, top-p and max length from the current chemistry and start
-   the streaming request (D-04).
+5. *(Reduced mode)* Project the chemistry with this message's pending releases. From that
+   state compute T, top-p and max length, and the mood note from the steering channels,
+   sent after the persona in the system prompt. Start the streaming request (D-04, D-38).
 
 **On each streamed token**
 6. Integrate one tick: concentrations first, then C-bar and rho, then CB1 tone.
 7. Compute Delta and m_k for every channel, including the six steering directions, which
-   are shown in the UI but not applied (no hook).
+   are shown in the UI. They reach the model only through the mood note of step 5 (no hook).
 8. Append the token, write the journal row, publish a frame.
 9. *(Not in reduced mode)* LoRA gradient step every 64 tokens.
 
@@ -117,7 +118,7 @@ What the spec asks for and what we can do with LM Studio.
 | Chemistry, W, special dynamics | Full | |
 | Receptors, tolerance, withdrawal | Full | |
 | Appraisal S, r, A, W | Adapted | Probes on embeddings instead of residual stream (D-05). S from embedding novelty (D-19) |
-| E1 steering | Display only | m_k computed and shown, never applied |
+| E1 steering | Adapted | No hook: m_k becomes a mood note in the system prompt (D-38) |
 | E2 sampling | Adapted | Once per response (D-04) |
 | E3 plasticity | Not available | No LoRA. eta is computed and shown |
 | E4 memory export | Full | Consumed by the ACT-R memory (memory.md) |

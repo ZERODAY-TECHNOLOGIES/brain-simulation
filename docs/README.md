@@ -25,8 +25,8 @@ These docs explain how we build it and where we deliberately differ from it.
 - Everything is .NET. One WPF app that hosts the engine in-process. No Python, no IPC.
 - The LLM is Qwen3.5-0.8B served by LM Studio on this laptop, over its local HTTP API.
 - Because LM Studio does not expose internal activations or allow training, we run the
-  spec in **reduced mode**: no steering (E1), no LoRA plasticity (E3). Sampling (E2),
-  memory export (E4) and sleep (E5) stay. See [architecture.md](architecture.md#reduced-mode).
+  spec in **reduced mode**: no steering hook (E1, replaced by a mood note in the system
+  prompt, D-38), no LoRA plasticity (E3). Sampling (E2), memory export (E4) and sleep (E5) stay. See [architecture.md](architecture.md#reduced-mode).
 - Appraisal uses linear probes trained on text embeddings (also served by LM Studio),
   which is the closest thing to the spec's activation probes we can get without hooks.
 - Reward is implicit only (a sentiment probe on the user's reply). On top of that, a

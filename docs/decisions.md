@@ -35,11 +35,13 @@ Status values: **Decided**, **Open**, **Default** (we go with this unless someon
 - **Consequence:** No access to the residual stream and no training. E1 (steering) and
   E3 (LoRA plasticity) are not implemented. Tests T2, T3 and T7 do not apply. T5 and T9
   apply only in part. Full list in [architecture.md](architecture.md#reduced-mode).
+  Since D-38 the steering directions reach the model as a mood note in its system prompt.
 
 ### D-04. Sampling parameters are set once per response
 - **Date:** 2026-11-04
 - **Decision:** T, top-p and max length are computed from the chemistry when the response
-  starts and sent with the request. The chemistry still advances one tick per streamed
+  starts and sent with the request. Since D-38 that chemistry includes the releases the
+  message just scheduled, so the reply to an insult is already sampled under its stress. The chemistry still advances one tick per streamed
   token, so the display stays live.
 - **Ceiling:** If one response ends up much longer than NE's half-life (40 ticks), the
   temperature lags behind the chemistry. Upgrade path: one request per token with
@@ -414,6 +416,32 @@ See [conventions.md](conventions.md#git).
   letter ("pinea", "orbita", "adrena"). After a ComboBox dropdown opens through UIA, the window
   ignores SC_CLOSE; this also happens with the older clock ComboBox and WM_CLOSE still works.
   Whether a real mouse sees it is not known yet.
+
+### D-38. A mood note stands in for E1 steering, and the model gets a persona
+- **Date:** 2026-11-06
+- **Context:** The user insulted the agent and saw no reaction. The chemistry reacted (NE 1.57,
+  CORT 1.55, AEA 0.32 nine seconds later), but none of it could reach the text: steering is not
+  applied in reduced mode (D-03), the system prompt was "You are a helpful assistant.", and
+  sampling was fixed before the message's releases, spread over 10 ticks, had arrived.
+- **Decision:**
+  - At step 5 the engine projects the state once every pending release has arrived
+    (`ChemicalState.Projected`, ignoring decay over the spread). Sampling and the steering
+    channels are computed on that state.
+  - Steering channels with |m_k| of at least 0.1 become one sentence in the system prompt,
+    after the persona: "Right now you feel ... Let it show: ...". At most three, largest first;
+    "very" from 0.3. Phrases, thresholds and the persona live in `config.yaml` (`mood`,
+    `llm.system_prompt`). The note goes with that request only, never into the history.
+  - The system prompt is a persona: a small mind inside a brain simulation whose chemistry
+    sets its mood, not a company's assistant, answering in the user's language.
+  - The Effectors panel shows the note the next reply would get and the one the last reply got.
+- **Consequence:** The engine side is exact and tested; whether the text follows depends on
+  the model. Measured with qwen3.5-0.8b: the note arrives (an insult gives "scattered, flat and
+  uninterested, cautious", a second one adds "tense and on edge"), but the model mostly falls
+  back on "I am an AI and have no feelings", with an occasional "Get out." or "your tone is
+  unprofessional". Placing the note in the user turn or using a named role-play persona did not
+  do better over four samples each. A larger chat model, chosen in Settings, should follow it.
+  An insult moves focus and dopamine more than calm and warmth, so those lead the first note:
+  that is the channel calibration, not the note.
 
 ## Open
 
