@@ -2,6 +2,7 @@ using BrainSim.Engine.Chemistry;
 using BrainSim.Engine.Circadian;
 using BrainSim.Engine.Config;
 using BrainSim.Engine.Effectors;
+using BrainSim.Engine.Endocannabinoids;
 using BrainSim.Engine.Receptors;
 using BrainSim.Engine.Sleep;
 
@@ -53,6 +54,7 @@ public sealed class Brain
         Chemistry = new ChemicalState(config);
         Receptors = new ReceptorState(config);
         Modulation = new Modulation(config);
+        Endocannabinoids = new EndocannabinoidSystem(config);
         Clock = new CircadianClock(config.Circadian);
         Architecture = new SleepArchitecture(config.Sleep);
         _tickLength = TimeSpan.FromTicks((long)(TimeSpan.TicksPerSecond / config.Time.TicksPerSecond));
@@ -78,6 +80,7 @@ public sealed class Brain
     public ChemicalState Chemistry { get; }
     public ReceptorState Receptors { get; }
     public Modulation Modulation { get; }
+    public EndocannabinoidSystem Endocannabinoids { get; }
     public CircadianClock Clock { get; }
     public SleepArchitecture Architecture { get; }
 
@@ -114,6 +117,7 @@ public sealed class Brain
         Chemistry.Step();
         Receptors.Step(Chemistry.C);
         Modulation.Compute(Chemistry.C, Receptors);
+        Endocannabinoids.Compute(Chemistry.C, Receptors);
         CheckSleepDecision();
         Ticked?.Invoke(this, token);
     }
@@ -138,6 +142,7 @@ public sealed class Brain
         Array.Copy(checkpoint.Rho, Receptors.Rho, Math.Min(checkpoint.Rho.Length, Substances.Count));
         Clock.Restore(checkpoint.Clock);
         Modulation.Compute(Chemistry.C, Receptors);
+        Endocannabinoids.Compute(Chemistry.C, Receptors);
     }
 
     /// <summary>Idle time: ticks at ticks_per_second of clock time until <paramref name="until"/>.</summary>

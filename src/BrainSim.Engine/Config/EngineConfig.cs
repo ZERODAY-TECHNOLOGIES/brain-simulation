@@ -19,6 +19,7 @@ public sealed record EngineConfig
     public SamplingConfig Sampling { get; init; } = new();
     public DreamConfig Dreams { get; init; } = new();
     public MemoryConfig Memory { get; init; } = new();
+    public EndocannabinoidConfig Endocannabinoid { get; init; } = new();
 
     public static EngineConfig LoadDefault() => Load(Path.Combine(AppContext.BaseDirectory, "config.yaml"));
 
@@ -51,6 +52,8 @@ public sealed record EngineConfig
 
         ParseSubstances(Interactions.SelectMany(i => new[] { i.From, i.To }));
         ParseSubstances(Modulation.Channels.Values.SelectMany(t => t).Select(t => t.Substance));
+        ParseSubstances(Endocannabinoid.Cb1.Select(t => t.Substance));
+        ParseSubstances(Endocannabinoid.ReleaseGain.Keys);
         ValidateTable("appraisal signal", "gains", Appraisal.Gains, Signals);
         ValidateTable("sleep phase", "phase_targets", Sleep.PhaseTargets, SleepPhases);
     }
@@ -156,6 +159,18 @@ public sealed record MemoryConfig
     public int FactsPerEpisode { get; init; } = 5;
     public int FactMinChars { get; init; } = 3;
     public int FactMaxChars { get; init; } = 200;
+}
+
+/// <summary>The endocannabinoid system (docs/endocannabinoids.md, D-36). Not in the spec.</summary>
+public sealed record EndocannabinoidConfig
+{
+    /// <summary>The terms of CB1 tone, summed like a channel but without GABA damping.</summary>
+    public List<ChannelTermConfig> Cb1 { get; init; } = [];
+
+    /// <summary>r_i in gain_i = 1 + r_i * cb1, per substance. Substances not listed are not braked.</summary>
+    public Dictionary<string, double> ReleaseGain { get; init; } = [];
+    public double GainMin { get; init; } = 0.25;
+    public double GainMax { get; init; } = 2.0;
 }
 
 public sealed record DreamConfig

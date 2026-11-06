@@ -47,7 +47,7 @@ public class LabTests
         double CortisolAfterRelease()
         {
             var brain = new Brain(Config with { Interactions = [] }, Noon);
-            appraiser.Release(signals, brain.Chemistry);
+            appraiser.Release(signals, brain.Chemistry, brain.Endocannabinoids);
             brain.AdvanceTo(Noon.AddSeconds(1));
             return brain.Chemistry[Substance.Cortisol];
         }

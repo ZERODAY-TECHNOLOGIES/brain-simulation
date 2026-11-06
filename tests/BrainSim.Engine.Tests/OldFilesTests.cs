@@ -57,6 +57,7 @@ public class OldFilesTests
             {
                 Assert.Equal(Substances.Count, r.C.Length);
                 Assert.Equal(1.5, r.C[(int)Substance.Cortisol]);
+                Assert.Equal(0.0, r.Cb1);
                 foreach (var i in Ecb)
                 {
                     Assert.Equal(1.0, r.C[i]);

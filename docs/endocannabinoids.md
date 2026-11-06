@@ -90,26 +90,27 @@ At baseline every gain is exactly 1, so nothing in the spec's behavior changes u
 
 ## On-demand 2-AG
 
-Each appraisal release of NE, DA or CORT also releases 2-AG:
+2-AG is made from activity: W terms from NE and DA (and from CORT, below) to 2-AG. While NE or DA
+is above its target, 2-AG is being made, so it rises after them and peaks once they have mostly
+decayed (after a threat: NE at tick 10, 2-AG at tick 135).
 
-```
-2-AG impulse = on_demand * sum of the positive NE, DA and CORT impulses of that message
-```
-
-This is the activity-driven part (the neuron that fires hard makes its own brake). It is an
-ordinary impulse, spread over the next 10 ticks like the others, so the chemistry stays in one
-code path and replay stays exact.
+A first version released 2-AG as an impulse alongside each NE, DA and CORT impulse. 2-AG then
+peaked at the same tick as NE, which is not on demand. W is also simpler: no extra code path, and
+the stability check covers it.
 
 ## W terms
 
 | From | To | Sign | Source |
 |---|---|---|---|
+| NE | 2-AG | + | On demand, from activity |
+| DA | 2-AG | + | On demand: DA neurons make 2-AG that silences their GABA input |
 | CORT | 2-AG | + | Glucocorticoids recruit 2-AG (Di et al. 2003, Hill et al. 2011) |
 | 2-AG | CORT | - | 2-AG in prefrontal cortex ends the HPA response (Hill et al. 2011) |
 | OXT | AEA | + | Oxytocin mobilizes AEA for social reward (Wei et al. 2015) |
 
-The CORT and 2-AG loop is negative feedback, which adds stability. AEA has no W output, so no
-new loop closes through it.
+The CORT and 2-AG loop is negative feedback, which adds stability. CORT to DA to 2-AG to CORT
+is a positive loop, but its steady-state gain is about 0.09, far below 1. AEA has no W output, so
+no new loop closes through it.
 
 **Sleep goes through P, not W.** AEA promotes sleep (in rats it raises basal forebrain
 adenosine, Murillo-Rodriguez et al. 2003). A W term AEA to ADO would close a loop back to ADO
@@ -125,7 +126,7 @@ What a hostile message does, which is also the first acceptance test:
 1. The threat appraisal releases NE and CORT, each scaled by the brake, and **lowers AEA**
    (a negative threat gain, the FAAH effect). Less AEA means a smaller cb1 and a stronger
    response next time, until AEA recovers.
-2. On-demand 2-AG follows the NE and CORT release within ticks.
+2. NE makes 2-AG on demand, so 2-AG rises after it.
 3. CORT recruits more 2-AG over minutes (W). 2-AG pulls CORT back down (W) and raises cb1,
    which brakes further release.
 
@@ -174,6 +175,8 @@ half_life:
   2-AG: 600
 
 interactions:
+  - { from: NE,   to: 2-AG, w: 0.003 }
+  - { from: DA,   to: 2-AG, w: 0.002 }
   - { from: CORT, to: 2-AG, w: 0.0004 }
   - { from: 2-AG, to: CORT, w: -0.0001 }
   - { from: OXT,  to: AEA,  w: 0.0003 }
@@ -194,7 +197,6 @@ endocannabinoid:
   release_gain: { NE: -2.0, CORT: -2.0, DA: 1.0 }
   gain_min: 0.25
   gain_max: 2.0
-  on_demand: 0.3
   sleep_pressure: 0.5
   extinction_gain: 1.0
   detension_max: 0.5
@@ -207,7 +209,7 @@ endocannabinoid:
 - **Checkpoint:** `C`, the impulse buffer, `MeanC` and `Rho` grow from 10 to 12 entries. An
   older checkpoint loads with AEA and 2-AG at baseline (C 1, pending 0, C-bar 1, rho 1).
 - **Tick journal:** new sessions get `c_AEA`, `c_2-AG` and the other per-substance columns,
-  plus `m_cb1` and the brake gains. Reading an older journal for replay fills missing columns
+  plus `cb1`. The gains are a pure function of `cb1`, so they are not stored. Reading an older journal for replay fills missing columns
   with baseline, so old sessions replay with flat eCB lines.
 - **memory.bin, settings.json:** unchanged.
 

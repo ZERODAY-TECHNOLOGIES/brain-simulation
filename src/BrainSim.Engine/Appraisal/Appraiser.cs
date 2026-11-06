@@ -1,5 +1,6 @@
 using BrainSim.Engine.Chemistry;
 using BrainSim.Engine.Config;
+using BrainSim.Engine.Endocannabinoids;
 
 namespace BrainSim.Engine.Appraisal;
 
@@ -72,8 +73,11 @@ public sealed class Appraiser
         return new AppraisalSignals(surprise, reward, error, threat, warmth, ExpectedReward);
     }
 
-    /// <summary>Spec loop step 4: schedules the impulses, spread over the next ticks.</summary>
-    public void Release(AppraisalSignals signals, ChemicalState chemistry)
+    /// <summary>
+    /// Spec loop step 4: schedules the impulses, spread over the next ticks. This is the only endogenous release, so
+    /// CB1 brakes it here (D-36). Lab injections do not pass through here and are not braked.
+    /// </summary>
+    public void Release(AppraisalSignals signals, ChemicalState chemistry, EndocannabinoidSystem ecb)
     {
         foreach (var (signal, substance, gain) in _gains)
         {
@@ -88,7 +92,7 @@ public sealed class Appraiser
             };
             if (value != 0)
             {
-                chemistry.Release(substance, gain * value);
+                chemistry.Release(substance, gain * value * ecb.Gain(substance));
             }
         }
     }

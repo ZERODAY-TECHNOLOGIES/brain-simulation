@@ -17,6 +17,7 @@ public class TickJournalTests
             await using (var journal = await TickJournal.CreateAsync(path, brain.Modulation.Names, rowGroupSize: 1000))
             {
                 brain.Chemistry.Release(Substance.Dopamine, 2.0);
+                brain.Chemistry.Release(Substance.Arachidonoylglycerol, 1.0); // so CB1 tone moves
                 brain.Ticked += (b, token) =>
                 {
                     var record = TickRecord.From(b, token);
@@ -42,7 +43,10 @@ public class TickJournalTests
                 Assert.Equal(w.MeanC, r.MeanC);
                 Assert.Equal(w.Rho, r.Rho);
                 Assert.Equal(w.M, r.M);
+                Assert.Equal(w.Cb1, r.Cb1);
             }
+
+            Assert.Contains(read, r => r.Cb1 > 0.01);
         }
         finally
         {

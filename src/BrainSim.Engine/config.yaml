@@ -46,6 +46,8 @@ interactions:
   - { from: CORT, to: GH,   w: -0.0002 }
   - { from: 5-HT, to: CORT, w: -0.00004 }   # spec -0.0001, x0.4 (D-20)
   # Endocannabinoids, ours, not in spec (D-36). The CORT and 2-AG loop is negative feedback.
+  - { from: NE,   to: 2-AG, w: 0.003 }      # on demand: activity makes 2-AG, after it
+  - { from: DA,   to: 2-AG, w: 0.002 }      # on demand, DA neurons
   - { from: CORT, to: 2-AG, w: 0.0004 }     # glucocorticoids recruit 2-AG
   - { from: 2-AG, to: CORT, w: -0.0001 }    # 2-AG ends the HPA response
   - { from: OXT,  to: AEA,  w: 0.0003 }     # oxytocin mobilizes AEA
@@ -122,7 +124,7 @@ appraisal:
   gains:
     surprise:        { NE: 0.8, ACh: 0.6 }
     reward_error:    { DA: 1.5 }
-    threat:          { CORT: 0.3, NE: 1.2 }
+    threat:          { CORT: 0.3, NE: 1.2, AEA: -0.5 }   # AEA: ours, stress raises FAAH (D-36)
     warmth:          { OXT: 0.8, 5-HT: 0.2 }
     expected_reward: { 5-HT: 0.1 }   # applied to max(V, 0)
 
@@ -219,3 +221,15 @@ memory:
   facts_per_episode: 5        # ours
   fact_min_chars: 3           # ours
   fact_max_chars: 200         # ours
+
+# Endocannabinoids (docs/endocannabinoids.md, D-36). Not in the spec: every value is ours.
+endocannabinoid:
+  cb1:                        # CB1 tone, zero at rest. AEA is a partial agonist, so its Emax is smaller
+    - { substance: AEA,  emax: 0.4 }
+    - { substance: 2-AG, emax: 0.6 }
+  release_gain:               # gain = 1 + r * cb1 on endogenous release, clamped to [gain_min, gain_max]
+    NE: -2.0
+    CORT: -2.0
+    DA: 1.0
+  gain_min: 0.25
+  gain_max: 2.0

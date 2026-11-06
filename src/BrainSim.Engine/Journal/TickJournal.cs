@@ -18,7 +18,8 @@ public sealed record TickRecord(
     double[] MeanC,
     double[] Rho,
     double[] M,
-    string? Token)
+    string? Token,
+    double Cb1 = 0)
 {
     public static TickRecord From(Brain brain, string? token) => new(
         brain.Chemistry.Tick,
@@ -32,7 +33,8 @@ public sealed record TickRecord(
         [.. brain.Receptors.MeanC],
         [.. brain.Receptors.Rho],
         [.. brain.Modulation.M],
-        token);
+        token,
+        brain.Endocannabinoids.Cb1);
 }
 
 /// <summary>
@@ -101,6 +103,7 @@ public sealed class TickJournal : IAsyncDisposable
             await WriteVectorAsync(group, _columns.Rho, r => r.Rho);
             await WriteVectorAsync(group, _columns.M, r => r.M);
             await group.WriteAsync(_columns.Token, _buffer.Select(r => r.Token!).ToArray());
+            await group.WriteAsync(_columns.Cb1, (ReadOnlyMemory<double>)_buffer.Select(r => r.Cb1).ToArray());
         }
 
         _buffer.Clear();
@@ -143,12 +146,13 @@ public sealed class TickJournal : IAsyncDisposable
             var meanC = await ReadVectorAsync(group, columns.MeanC, n, present, 1.0);
             var rho = await ReadVectorAsync(group, columns.Rho, n, present, 1.0);
             var m = await ReadVectorAsync(group, columns.M, n, present, 0.0);
+            var cb1 = (await ReadVectorAsync(group, [columns.Cb1], n, present, 0.0)).Select(v => v[0]).ToArray();
 
             for (var i = 0; i < n; i++)
             {
                 onRecord(new TickRecord(
                     ticks[i], new DateTime(times[i]), phases[i]!, cycles[i], phis[i], pressures[i],
-                    c[i], baseline[i], meanC[i], rho[i], m[i], tokens[i]));
+                    c[i], baseline[i], meanC[i], rho[i], m[i], tokens[i], cb1[i]));
             }
         }
     }
@@ -208,7 +212,7 @@ public sealed class TickJournal : IAsyncDisposable
 
     /// <summary>
     /// Column layout: tick, time (DateTime ticks), phase, cycle, phi, sleep_pressure,
-    /// c_*, baseline_*, mean_c_*, rho_* (per substance), m_* (per channel), token.
+    /// c_*, baseline_*, mean_c_*, rho_* (per substance), m_* (per channel), token, cb1.
     /// </summary>
     private sealed class Columns
     {
@@ -219,7 +223,7 @@ public sealed class TickJournal : IAsyncDisposable
             MeanC = PerSubstance("mean_c_");
             Rho = PerSubstance("rho_");
             M = [.. channelNames.Select(n => new DataField<double>("m_" + n))];
-            Schema = new ParquetSchema([Tick, Time, Phase, Cycle, Phi, Pressure, .. C, .. Baseline, .. MeanC, .. Rho, .. M, Token]);
+            Schema = new ParquetSchema([Tick, Time, Phase, Cycle, Phi, Pressure, .. C, .. Baseline, .. MeanC, .. Rho, .. M, Token, Cb1]);
         }
 
         public DataField Tick { get; } = new DataField<long>("tick");
@@ -229,6 +233,9 @@ public sealed class TickJournal : IAsyncDisposable
         public DataField Phi { get; } = new DataField<double>("phi");
         public DataField Pressure { get; } = new DataField<double>("sleep_pressure");
         public DataField Token { get; } = new DataField<string>("token", true);
+
+        /// <summary>CB1 tone (D-36). Missing in journals from before Phase 8, where it reads as 0.</summary>
+        public DataField Cb1 { get; } = new DataField<double>("cb1");
         public DataField[] C { get; }
         public DataField[] Baseline { get; }
         public DataField[] MeanC { get; }

@@ -135,7 +135,7 @@ public sealed class Agent
         catch (HttpRequestException)
         {
             var neutral = new AppraisalSignals(0, null, 0, 0, 0, Appraiser.ExpectedReward);
-            Appraiser.Release(neutral, Brain.Chemistry);
+            Appraiser.Release(neutral, Brain.Chemistry, Brain.Endocannabinoids);
             return (neutral, [], 0, null);
         }
 
@@ -144,7 +144,7 @@ public sealed class Agent
         var signals = Appraiser.Appraise(embedding, hasPreviousResponse: _history.Any(m => m.Role == "assistant"));
         signals = signals with { Surprise = signals.Surprise * (1 - _config.Memory.FamiliarityDamping * familiarity) };
         IReadOnlyList<string> remembered = [.. Memory.RecallFacts(embedding, modulation, Brain.Now).Select(r => r.Chunk.Text)];
-        Appraiser.Release(signals, Brain.Chemistry);
+        Appraiser.Release(signals, Brain.Chemistry, Brain.Endocannabinoids);
         return (signals, remembered, familiarity, embedding);
     }
 

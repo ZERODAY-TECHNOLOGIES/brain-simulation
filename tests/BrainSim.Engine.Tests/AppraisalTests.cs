@@ -1,6 +1,7 @@
 using BrainSim.Engine.Appraisal;
 using BrainSim.Engine.Chemistry;
 using BrainSim.Engine.Config;
+using BrainSim.Engine.Endocannabinoids;
 
 using static BrainSim.Engine.Tests.Vectors;
 
@@ -9,6 +10,9 @@ namespace BrainSim.Engine.Tests;
 public class AppraisalTests
 {
     private static readonly EngineConfig Config = EngineConfig.LoadDefault() with { Interactions = [] };
+
+    // CB1 at rest: every release gain is 1, so these tests see the spec's appraisal alone.
+    private static readonly EndocannabinoidSystem AtRest = new(Config);
 
     // Toy probes on a 4-dimensional "embedding": each probe reads one axis.
     private static readonly Dictionary<string, LinearProbe> Probes = new()
@@ -47,7 +51,7 @@ public class AppraisalTests
         var neutral = appraiser.Appraise(Unit(1, 1, 0.5f, 0.5f), hasPreviousResponse: true);
         Assert.True(neutral.RewardError < 0);
         var chemistry = new ChemicalState(Config);
-        appraiser.Release(neutral, chemistry);
+        appraiser.Release(neutral, chemistry, AtRest);
         for (var t = 0; t < Config.Time.ImpulseSpreadTicks; t++)
         {
             chemistry.Step();
@@ -75,8 +79,8 @@ public class AppraisalTests
         Assert.InRange(warm.Warmth, 0.99, 1.0);
 
         var chemistry = new ChemicalState(Config);
-        appraiser.Release(hostile with { Surprise = 0 }, chemistry);
-        appraiser.Release(warm with { Surprise = 0 }, chemistry);
+        appraiser.Release(hostile with { Surprise = 0 }, chemistry, AtRest);
+        appraiser.Release(warm with { Surprise = 0 }, chemistry, AtRest);
         for (var t = 0; t < Config.Time.ImpulseSpreadTicks; t++)
         {
             chemistry.Step();
@@ -186,7 +190,7 @@ public class AppraisalTests
         {
             var released = new ChemicalState(Config);
             var control = new ChemicalState(Config);
-            appraiser.Release(signals, released);
+            appraiser.Release(signals, released, AtRest);
             for (var t = 0; t < Config.Time.ImpulseSpreadTicks; t++)
             {
                 released.Step();
