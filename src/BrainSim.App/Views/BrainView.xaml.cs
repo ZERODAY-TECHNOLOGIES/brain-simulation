@@ -2,7 +2,9 @@ using System.Diagnostics;
 using System.IO;
 using System.Numerics;
 using System.Windows;
+using System.Windows.Automation;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Media3D;
 using BrainSim.App.Brain3D;
@@ -31,6 +33,11 @@ public partial class BrainView : UserControl
 
     private readonly Dictionary<string, (MeshGeometryModel3D Model, PhongMaterial Material, BrainRegion Region)> _regions = [];
     private readonly Dictionary<string, Color4> _restingEmissive = [];
+    private readonly Dictionary<string, Color4> _restingDiffuse = [];
+    private readonly Dictionary<string, (System.Numerics.Vector3 Center, float Radius)> _bounds = [];
+    private readonly Selection _selection = new();
+    private readonly ClickTracker _clicks = new();
+    private string? _cardText;
 
     private const double Cb1FullGlow = 0.15; // about the tone with 2-AG at twice its resting level
     private readonly List<(MeshGeometryModel3D Model, PhongMaterial Material, Substance Substance, bool Hpa)> _nuclei = [];
@@ -105,6 +112,9 @@ public partial class BrainView : UserControl
         };
         Viewport.OITRenderMode = OITRenderType.SinglePassWeighted;
         Viewport.MouseMove3D += OnMouseMove3D;
+        Navigation.Bind(Viewport);
+        Viewport.PreviewMouseLeftButtonDown += OnPressed;
+        Viewport.PreviewMouseLeftButtonUp += OnReleased;
 
         _ambient = new AmbientLight3D { Color = Color.FromRgb(0x30, 0x38, 0x44) };
         Viewport.Items.Add(_ambient);
@@ -134,6 +144,7 @@ public partial class BrainView : UserControl
             };
             _regions[region.Key] = (model, material, region);
             _restingEmissive[region.Key] = material.EmissiveColor;
+            _restingDiffuse[region.Key] = material.DiffuseColor;
             Viewport.Items.Add(model);
         }
 
@@ -213,11 +224,15 @@ public partial class BrainView : UserControl
         geometry.UpdateVertices();
         geometry.UpdateColors();
 
-        // Nuclei: brightness follows the concentration; below baseline they dim.
-        foreach (var (_, material, substance, _) in _nuclei)
+        // Nuclei: brightness follows the concentration; below baseline they dim. A focus elsewhere fades them.
+        for (var i = 0; i < _nuclei.Count; i++)
         {
-            material.EmissiveColor = Rgba(Palette.Hex(substance), Glow(frame.C[(int)substance]));
+            var (_, material, substance, _) = _nuclei[i];
+            var fade = _selection.Factor(Structures.Nuclei[i].Anchor);
+            material.EmissiveColor = Rgba(Palette.Hex(substance), Glow(frame.C[(int)substance]) * fade);
         }
+
+        ResetRegionLooks();
 
         // Glands and nuclei with meshes of their own.
         Tint("hypothalamus", Substance.Oxytocin, frame);
@@ -240,13 +255,166 @@ public partial class BrainView : UserControl
 
         UpdateCortex(frame, dt);
         ApplyCb1(frame);
+        ApplyFade();
         UpdateLighting(frame);
+        UpdateCard(frame);
+    }
+
+    /// <summary>With a structure in focus, everything else keeps <see cref="Selection.Faded"/> of its alpha and glow.</summary>
+    private void ApplyFade()
+    {
+        if (_selection.Key is null)
+        {
+            return;
+        }
+
+        foreach (var (key, (_, material, _)) in _regions)
+        {
+            var f = _selection.Factor(key);
+            if (f < 1)
+            {
+                var d = material.DiffuseColor;
+                var e = material.EmissiveColor;
+                material.DiffuseColor = new Color4(d.Red, d.Green, d.Blue, d.Alpha * f);
+                material.EmissiveColor = new Color4(e.Red * f, e.Green * f, e.Blue * f, 1);
+            }
+        }
+    }
+
+    // ---- Focus: click or pick a structure, the camera frames it and the rest fades (D-37). ----
+
+    private void OnPressed(object sender, MouseButtonEventArgs e) => _clicks.Down(At(e), _clock.Elapsed);
+
+    private void OnReleased(object sender, MouseButtonEventArgs e)
+    {
+        if (!_clicks.IsClick(At(e), _clock.Elapsed))
+        {
+            return; // a drag: Helix rotated the camera
+        }
+
+        var hits = Viewport.FindHits(e.GetPosition(Viewport)).Select(h => KeyOf(h.ModelHit)).OfType<(string, string)>();
+        if (Structures.Pick(hits) is { } key)
+        {
+            FocusOn(key);
+        }
+        else
+        {
+            ClearFocus();
+        }
+    }
+
+    private System.Numerics.Vector2 At(MouseButtonEventArgs e)
+    {
+        var p = e.GetPosition(Viewport);
+        return new System.Numerics.Vector2((float)p.X, (float)p.Y);
+    }
+
+    private (string Key, string Group)? KeyOf(object? model)
+    {
+        foreach (var (key, (m, _, region)) in _regions)
+        {
+            if (ReferenceEquals(m, model))
+            {
+                return (key, region.Group);
+            }
+        }
+
+        var nucleus = _nuclei.FindIndex(n => ReferenceEquals(n.Model, model));
+        return nucleus >= 0 ? (Structures.Nuclei[nucleus].Anchor, "nucleus") : null;
+    }
+
+    /// <summary>Selects a structure and glides the camera to frame it, keeping the current viewing direction.</summary>
+    public void FocusOn(string key)
+    {
+        if (_model is null)
+        {
+            return;
+        }
+
+        _selection.Select(key);
+        var (center, radius) = BoundsOf(key);
+        if (Viewport.Camera is HelixToolkit.Wpf.SharpDX.ProjectionCamera camera)
+        {
+            var look = camera.LookDirection;
+            var fov = camera is HelixToolkit.Wpf.SharpDX.PerspectiveCamera p ? (float)p.FieldOfView : 40f;
+            var (position, newLook) = OrbitCamera.Frame(center, radius, new System.Numerics.Vector3((float)look.X, (float)look.Y, (float)look.Z), fov);
+            camera.AnimateTo(new Point3D(position.X, position.Y, position.Z), new Vector3D(newLook.X, newLook.Y, newLook.Z), camera.UpDirection, 500);
+        }
+
+        ShowSelection();
+    }
+
+    private (System.Numerics.Vector3 Center, float Radius) BoundsOf(string key)
+    {
+        if (!_bounds.TryGetValue(key, out var bounds))
+        {
+            // Nuclei are small spheres: frame some of the tissue around them as well.
+            bounds = _regions.TryGetValue(key, out var r) ? Structures.Bounds(r.Region.Positions) : (_model!.Anchors[key], 0.25f);
+            _bounds[key] = bounds;
+        }
+
+        return bounds;
+    }
+
+    private void ClearFocus()
+    {
+        _selection.Clear();
+        ShowSelection();
+    }
+
+    private void OnReset(object sender, RoutedEventArgs e) => SetCamera("lateral", animate: true);
+
+    private void OnCloseCard(object sender, RoutedEventArgs e) => ClearFocus();
+
+    /// <summary>The card and the status a screen reader hears follow the selection.</summary>
+    private void ShowSelection()
+    {
+        var key = _selection.Key;
+        Card.Visibility = key is null ? Visibility.Collapsed : Visibility.Visible;
+        CardTitle.Text = key is null ? "" : Structures.Name(key);
+        _cardText = null;
+        AutomationProperties.SetItemStatus(this, key is null ? "Whole brain" : $"Focused on {Structures.Name(key)}");
+    }
+
+    /// <summary>The card shows the live values of the structure in focus.</summary>
+    private void UpdateCard(TickRecord frame)
+    {
+        if (_selection.Key is not { } key)
+        {
+            return;
+        }
+
+        var nucleus = Array.FindIndex(Structures.Nuclei, n => n.Anchor == key);
+        var text = nucleus >= 0 ? NucleusText(nucleus, frame) : Structures.SubstancesText(key, frame).TrimStart('\n');
+        if (text != _cardText)
+        {
+            _cardText = text;
+            CardText.Text = text;
+        }
+    }
+
+    private string NucleusText(int nucleus, TickRecord frame)
+    {
+        var substance = Structures.Nuclei[nucleus].Substance;
+        return $"{substance.Abbreviation()} {frame.C[(int)substance]:0.00}, release {_release[(int)substance]:+0.00;-0.00;0.00}/s";
+    }
+
+    /// <summary>
+    /// Every region starts each frame from its resting look; the layers below (tints, cortex, CB1, fade) build on it, so
+    /// nothing builds up from one frame to the next.
+    /// </summary>
+    private void ResetRegionLooks()
+    {
+        foreach (var (key, (_, material, _)) in _regions)
+        {
+            material.EmissiveColor = _restingEmissive[key];
+            material.DiffuseColor = _restingDiffuse[key];
+        }
     }
 
     /// <summary>
     /// The endocannabinoids have no source nucleus, so the regions dense in CB1 take a lime tint with CB1 tone, mixed
-    /// into whatever they show this frame, and dim a little below rest (D-36). The basal ganglia and the cerebellum are
-    /// not recolored every frame, so they start from their resting color and the tint never builds up.
+    /// into whatever they show this frame, and dim a little below rest (D-36).
     /// </summary>
     private void ApplyCb1(TickRecord frame)
     {
@@ -254,26 +422,14 @@ public partial class BrainView : UserControl
         var lime = Rgb(Palette.Hex(Substance.Arachidonoylglycerol));
         foreach (var (key, (_, material, _)) in _regions)
         {
-            Color4 c;
-            var strength = 0.3f;
-            if (Structures.Cb1Resting.Contains(key))
-            {
-                c = _restingEmissive[key];
-            }
-            else if (Structures.Cb1Recolored.Contains(key))
-            {
-                c = material.EmissiveColor;
-            }
-            else if (key.StartsWith("frontal", StringComparison.Ordinal))
-            {
-                c = material.EmissiveColor;
-                strength = 0.12f; // a large shell in front of everything else: a faint tint is enough
-            }
-            else
+            if (!Structures.IsCb1Dense(key))
             {
                 continue;
             }
 
+            var c = material.EmissiveColor;
+            // The frontal lobe is a large shell in front of everything else: a faint tint is enough.
+            var strength = key.StartsWith("frontal", StringComparison.Ordinal) ? 0.12f : 0.3f;
             var add = tone * strength;
             material.EmissiveColor = tone >= 0
                 ? new Color4(c.Red + lime.X * add, c.Green + lime.Y * add, c.Blue + lime.Z * add, 1)
@@ -401,6 +557,7 @@ public partial class BrainView : UserControl
 
     private void SetCamera(string view, bool animate)
     {
+        ClearFocus(); // a preset shows the whole brain again
         _medial = view == "medial";
         ApplyLayers();
         var (position, up) = view switch
@@ -438,8 +595,7 @@ public partial class BrainView : UserControl
         }
         else if (nucleus >= 0)
         {
-            var (anchor, substance, _, _) = Structures.Nuclei[nucleus];
-            text = $"{Structures.Name(anchor)}\n{substance.Abbreviation()} {frame.C[(int)substance]:0.00}, release {_release[(int)substance]:+0.00;-0.00;0.00}/s";
+            text = $"{Structures.Name(Structures.Nuclei[nucleus].Anchor)}\n{NucleusText(nucleus, frame)}";
         }
 
         InfoPanel.Visibility = text is null ? Visibility.Collapsed : Visibility.Visible;

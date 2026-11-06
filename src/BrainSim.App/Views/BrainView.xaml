@@ -1,4 +1,5 @@
 <UserControl x:Class="BrainSim.App.Views.BrainView"
+             AutomationProperties.Name="Brain 3D view" AutomationProperties.ItemStatus="Whole brain"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:hx="http://helix-toolkit.org/wpf/SharpDX">
@@ -36,12 +37,27 @@
       <Button Content="Medial" Padding="10,2" Margin="0,0,4,4" Click="OnCamera" Tag="medial" ToolTip="Hides the right hemisphere and looks at the inside of the left one" />
       <Button Content="Top" Padding="10,2" Margin="0,0,4,4" Click="OnCamera" Tag="top" />
       <Button Content="Front" Padding="10,2" Margin="0,0,4,4" Click="OnCamera" Tag="front" />
+      <Button Content="Reset" Padding="10,2" Margin="0,0,4,4" Click="OnReset" ToolTip="Back to the whole brain from the side (Esc)" />
     </WrapPanel>
 
     <!-- Hover info, bottom left. -->
     <Border x:Name="InfoPanel" VerticalAlignment="Bottom" HorizontalAlignment="Left" Margin="10" Padding="10,6" CornerRadius="6"
             Background="#CC121821" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" Visibility="Collapsed">
       <TextBlock x:Name="Info" Style="{StaticResource Number}" FontSize="12" />
+    </Border>
+
+    <!-- The structure in focus, bottom right: its name and live values. -->
+    <Border x:Name="Card" VerticalAlignment="Bottom" HorizontalAlignment="Right" Margin="10" Padding="12,8" CornerRadius="6"
+            Background="#E6121821" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" Visibility="Collapsed" MaxWidth="360"
+            AutomationProperties.Name="Focused structure">
+      <StackPanel>
+        <TextBlock x:Name="CardTitle" Style="{StaticResource SectionTitle}" />
+        <TextBlock x:Name="CardText" Style="{StaticResource Number}" FontSize="12" Margin="0,4,0,0" TextWrapping="Wrap" />
+        <WrapPanel Margin="0,8,0,0">
+          <Button x:Name="OpenInLabButton" Content="Open in Lab" Padding="10,2" Margin="0,0,6,0" Visibility="Collapsed" />
+          <Button Content="Close" Padding="10,2" Click="OnCloseCard" ToolTip="Show the whole brain again, without moving the camera" />
+        </WrapPanel>
+      </StackPanel>
     </Border>
 
     <TextBlock x:Name="LoadError" Foreground="{StaticResource WarnBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"

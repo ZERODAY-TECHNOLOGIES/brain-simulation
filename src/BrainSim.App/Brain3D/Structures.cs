@@ -8,14 +8,19 @@ namespace BrainSim.App.Brain3D;
 /// What the 3D brain shows about each structure: its name, the substances it reports on hover, its bounding sphere
 /// for focusing, and which structures are nuclei. Kept out of BrainView so it can be tested without a GPU (D-37).
 /// </summary>
+/// <summary>One entry of the "Focus on" list. Nuclei carry their substance, for Open in Lab.</summary>
+public sealed record Structure(string Key, string Name, string Group, Substance? Substance)
+{
+    public override string ToString() => Name;
+}
+
 public static class Structures
 {
-    // Regions dense in CB1. The first ones keep their resting color; the others are recolored every frame first.
-    public static readonly string[] Cb1Resting = ["caudate_l", "caudate_r", "putamen_l", "putamen_r", "cerebellum"];
-    public static readonly string[] Cb1Recolored = ["amygdala_l", "amygdala_r", "hippocampus_l", "hippocampus_r"];
+    /// <summary>Regions dense in CB1, besides the frontal cortex: they take the endocannabinoid tint (D-36).</summary>
+    private static readonly string[] Cb1Regions =
+        ["caudate_l", "caudate_r", "putamen_l", "putamen_r", "cerebellum", "amygdala_l", "amygdala_r", "hippocampus_l", "hippocampus_r"];
 
-    public static bool IsCb1Dense(string key) =>
-        Cb1Resting.Contains(key) || Cb1Recolored.Contains(key) || key.StartsWith("frontal", StringComparison.Ordinal);
+    public static bool IsCb1Dense(string key) => Cb1Regions.Contains(key) || key.StartsWith("frontal", StringComparison.Ordinal);
 
     /// <summary>Proxy spheres for nuclei too small to have meshes, at the anchors MeshPrep computed.</summary>
     public static readonly (string Anchor, Substance Substance, float Radius, bool Hpa)[] Nuclei =
@@ -88,6 +93,32 @@ public static class Structures
             var other => other,
         };
         return name + side;
+    }
+
+    private static readonly string[] GroupOrder = ["cortex", "subcortical", "brainstem", "gland", "nucleus"];
+
+    /// <summary>
+    /// Every structure you can focus on: each region, then the brain's nuclei, by group and then name. The HPA inset
+    /// (adrenals) is left out, since it is drawn outside the brain and not to scale.
+    /// </summary>
+    public static IReadOnlyList<Structure> Catalog(BrainModel model) =>
+    [
+        .. model.Regions.Select(r => new Structure(r.Key, Name(r.Key), r.Group, null))
+            .Concat(Nuclei.Where(n => !n.Hpa).Select(n => new Structure(n.Anchor, Name(n.Anchor), "nucleus", n.Substance)))
+            .OrderBy(s => Array.IndexOf(GroupOrder, s.Group))
+            .ThenBy(s => s.Name, StringComparer.Ordinal),
+    ];
+
+    /// <summary>
+    /// What a click selects, from the structures under the pointer, nearest first. The cortex is a see-through shell in
+    /// front of everything, so a nucleus (drawn on top) wins, then the nearest deep structure, and only then the cortex.
+    /// </summary>
+    public static string? Pick(IEnumerable<(string Key, string Group)> inDepthOrder)
+    {
+        var hits = inDepthOrder.ToList();
+        return hits.FirstOrDefault(h => h.Group == "nucleus").Key
+            ?? hits.FirstOrDefault(h => h.Group != "cortex").Key
+            ?? hits.FirstOrDefault().Key;
     }
 
     /// <summary>A sphere around every vertex: the box center, and the distance to the farthest vertex.</summary>

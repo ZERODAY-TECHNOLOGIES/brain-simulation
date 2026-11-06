@@ -52,6 +52,40 @@ public class StructuresTests
         Assert.Equal(text, Structures.SubstancesText(key, Frame()));
 
     [Fact]
+    public void The_catalog_lists_every_region_and_brain_nucleus_by_group_then_name()
+    {
+        var catalog = Structures.Catalog(Model.Value);
+
+        string[] groups = ["cortex", "subcortical", "brainstem", "gland", "nucleus"];
+        Assert.Equal(Model.Value.Regions.Count + Structures.Nuclei.Count(n => !n.Hpa), catalog.Count);
+        Assert.Equal(catalog.Count, catalog.Select(s => s.Name).Distinct().Count());
+        var order = catalog.Select(s => (Array.IndexOf(groups, s.Group), s.Name)).ToList();
+        Assert.All(order, o => Assert.True(o.Item1 >= 0, $"unknown group for {o.Name}"));
+        Assert.Equal(order.OrderBy(o => o.Item1).ThenBy(o => o.Name, StringComparer.Ordinal), order);
+
+        // Nuclei carry their substance, for Open in Lab; regions do not. The HPA inset is not a brain structure.
+        var vta = Assert.Single(catalog, s => s.Key == "vta");
+        Assert.Equal(Substance.Dopamine, vta.Substance);
+        Assert.Equal(Substance.Norepinephrine, catalog.Single(s => s.Key == "locus_coeruleus_l").Substance);
+        Assert.Null(catalog.Single(s => s.Key == "hippocampus_l").Substance);
+        Assert.DoesNotContain(catalog, s => s.Key == "adrenal");
+        Assert.Equal("Hippocampus (left)", catalog.Single(s => s.Key == "hippocampus_l").ToString());
+    }
+
+    [Theory]
+    [InlineData("temporal_l:cortex,hippocampus_l:subcortical,vta:nucleus", "vta")]          // nuclei are drawn on top
+    [InlineData("temporal_l:cortex,hippocampus_l:subcortical,thalamus_l:subcortical", "hippocampus_l")]
+    [InlineData("frontal_l:cortex,frontal_r:cortex", "frontal_l")]                           // only cortex: the nearest
+    [InlineData("", null)]
+    public void A_click_picks_a_nucleus_then_the_nearest_deep_structure_then_cortex(string hits, string? picked)
+    {
+        var inDepthOrder = hits.Split(',', StringSplitOptions.RemoveEmptyEntries)
+            .Select(h => h.Split(':')).Select(h => (h[0], h[1]));
+
+        Assert.Equal(picked, Structures.Pick(inDepthOrder));
+    }
+
+    [Fact]
     public void Bounds_contain_every_vertex_and_touch_one()
     {
         var region = Model.Value.Regions.First(r => r.Key == "hippocampus_l");
