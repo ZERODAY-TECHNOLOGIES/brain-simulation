@@ -432,7 +432,7 @@ public partial class BrainView : UserControl
         else if (nucleus >= 0)
         {
             var (anchor, substance, _, _) = Nuclei[nucleus];
-            text = $"{RegionName(anchor)}\n{substance.Abbreviation()} {frame.C[(int)substance]:0.00}, release {_release[(int)substance]:+0.00;-0.00}/s";
+            text = $"{RegionName(anchor)}\n{substance.Abbreviation()} {frame.C[(int)substance]:0.00}, release {_release[(int)substance]:+0.00;-0.00;0.00}/s";
         }
 
         InfoPanel.Visibility = text is null ? Visibility.Collapsed : Visibility.Visible;
@@ -455,7 +455,7 @@ public partial class BrainView : UserControl
         var text = "\n" + string.Join("   ", shown.Select(s => $"{s.Abbreviation()} {f.C[(int)s]:0.00}"));
         var cb1Dense = Cb1Resting.Contains(key) || Cb1Recolored.Contains(key) || key.StartsWith("frontal", StringComparison.Ordinal);
         return cb1Dense
-            ? text + $"\nAEA {f.C[(int)Substance.Anandamide]:0.00}   2-AG {f.C[(int)Substance.Arachidonoylglycerol]:0.00}   CB1 tone {f.Cb1:+0.00;-0.00}"
+            ? text + $"\nAEA {f.C[(int)Substance.Anandamide]:0.00}   2-AG {f.C[(int)Substance.Arachidonoylglycerol]:0.00}   CB1 tone {f.Cb1:+0.00;-0.00;0.00}"
             : text;
     }
 

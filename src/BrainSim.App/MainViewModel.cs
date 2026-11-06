@@ -547,7 +547,7 @@ public sealed partial class MainViewModel : ObservableObject
             CursorText = $"tick {f.Tick:N0}";
             var next = Sampling.Compute(f.C, _config.Sampling);
             SamplingText = $"T {next.Temperature:0.00}   top-p {next.TopP:0.00}   max {next.MaxTokens} tokens";
-            Cb1Text = $"{f.Cb1:+0.000;-0.000}   release NE x{_ecb.Gain(Substance.Norepinephrine, f.Cb1):0.00}, " +
+            Cb1Text = $"{f.Cb1:+0.000;-0.000;0.000}   release NE x{_ecb.Gain(Substance.Norepinephrine, f.Cb1):0.00}, " +
                 $"CORT x{_ecb.Gain(Substance.Cortisol, f.Cb1):0.00}, DA x{_ecb.Gain(Substance.Dopamine, f.Cb1):0.00}";
             for (var k = 0; k < Channels.Count && k < f.M.Length; k++)
             {

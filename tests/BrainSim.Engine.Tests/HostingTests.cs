@@ -100,6 +100,31 @@ public class HostingTests
     }
 
     [Fact]
+    public async Task A_signed_amount_that_rounds_to_zero_is_logged_without_a_double_sign()
+    {
+        // .NET formats -0.001 with "+0.00;-0.00" as "-+0.00": a negative that rounds to zero falls back to the
+        // positive section and keeps its minus. Found as "-+0.000" in the Effectors panel.
+        var ct = TestContext.Current.CancellationToken;
+        var directory = Path.Combine(Path.GetTempPath(), $"brainsim-host-{Guid.NewGuid():N}");
+        var llm = new LmStudioClient(new HttpClient(new FakeLmStudio(20)) { BaseAddress = new Uri(Config.Llm.BaseUrl) }, Config.Llm);
+        try
+        {
+            await using var host = new EngineHost(Config, llm, new Dictionary<string, LinearProbe>(), directory);
+            await host.StartAsync();
+
+            host.Inject(Substance.Dopamine, -0.001);
+            host.Inject(Substance.Dopamine, -0.5);
+            await WaitUntilAsync(() => host.Events.Snapshot().Count(e => e.Kind == EventKinds.Lab) == 2, ct);
+
+            Assert.Equal(["Inject DA 0.00", "Inject DA -0.50"], host.Events.Snapshot().Where(e => e.Kind == EventKinds.Lab).Select(e => e.Text));
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task A_later_message_logs_its_reward_and_what_it_recalled()
     {
         var ct = TestContext.Current.CancellationToken;

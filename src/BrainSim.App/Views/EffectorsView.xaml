@@ -33,7 +33,7 @@
               </Grid.ColumnDefinitions>
               <TextBlock Text="{Binding Label}" Foreground="{StaticResource TextBrush}" />
               <c:BipolarBar Grid.Column="1" Height="8" Value="{Binding Value}" Range="0.5" VerticalAlignment="Center" />
-              <TextBlock Grid.Column="2" Text="{Binding Value, StringFormat=+0.000;-0.000}" Style="{StaticResource Number}" HorizontalAlignment="Right" />
+              <TextBlock Grid.Column="2" Text="{Binding Value, StringFormat=+0.000;-0.000;0.000}" Style="{StaticResource Number}" HorizontalAlignment="Right" />
               <TextBlock Grid.Column="3" Text="{Binding Note}" Style="{StaticResource Muted}" Margin="12,0,0,0" />
             </Grid>
           </DataTemplate>

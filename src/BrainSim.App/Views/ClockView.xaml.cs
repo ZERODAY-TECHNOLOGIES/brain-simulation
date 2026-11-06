@@ -24,9 +24,9 @@ public partial class ClockView : PanelBase
         Details.Text =
             $"Clock time  {f.Time:HH:mm:ss}\n" +
             $"Phase phi   {f.Phi:00.00} h\n" +
-            $"Alertness   {CircadianClock.Alertness(f.Phi):+0.00;-0.00}\n" +
+            $"Alertness   {CircadianClock.Alertness(f.Phi):+0.00;-0.00;0.00}\n" +
             $"MEL         {f.C[(int)Substance.Melatonin]:0.00}   sleep needs > {sleep.OnsetMelatonin:0.0}\n" +
-            $"Pressure P  {f.SleepPressure:+0.00;-0.00}   sleep > {sleep.OnsetPressure:0.0}, wake < {sleep.WakePressure:0.0}\n" +
+            $"Pressure P  {f.SleepPressure:+0.00;-0.00;0.00}   sleep > {sleep.OnsetPressure:0.0}, wake < {sleep.WakePressure:0.0}\n" +
             $"ADO         {f.C[(int)Substance.Adenosine]:0.00}\n" +
             $"CORT        {f.C[(int)Substance.Cortisol]:0.00}";
 

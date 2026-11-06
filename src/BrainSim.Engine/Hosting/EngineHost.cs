@@ -120,7 +120,7 @@ public sealed class EngineHost : IAsyncDisposable
     public void Inject(Substance s, double amount) => Post(a =>
     {
         a.Brain.Chemistry.Release(s, amount);
-        Log(EventKinds.Lab, $"Inject {s.Abbreviation()} {amount:+0.00;-0.00}", new() { [s.Abbreviation()] = amount });
+        Log(EventKinds.Lab, $"Inject {s.Abbreviation()} {amount:+0.00;-0.00;0.00}", new() { [s.Abbreviation()] = amount });
     });
 
     public void Hold(Substance s, double? level) => Post(a =>
