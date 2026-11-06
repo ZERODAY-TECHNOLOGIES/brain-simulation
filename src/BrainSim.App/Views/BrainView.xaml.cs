@@ -32,9 +32,6 @@ public partial class BrainView : UserControl
     private readonly Dictionary<string, (MeshGeometryModel3D Model, PhongMaterial Material, BrainRegion Region)> _regions = [];
     private readonly Dictionary<string, Color4> _restingEmissive = [];
 
-    // Regions dense in CB1. The first ones keep their resting color; the others are recolored every frame first.
-    private static readonly string[] Cb1Resting = ["caudate_l", "caudate_r", "putamen_l", "putamen_r", "cerebellum"];
-    private static readonly string[] Cb1Recolored = ["amygdala_l", "amygdala_r", "hippocampus_l", "hippocampus_r"];
     private const double Cb1FullGlow = 0.15; // about the tone with 2-AG at twice its resting level
     private readonly List<(MeshGeometryModel3D Model, PhongMaterial Material, Substance Substance, bool Hpa)> _nuclei = [];
     private readonly Stopwatch _clock = Stopwatch.StartNew();
@@ -144,7 +141,7 @@ public partial class BrainView : UserControl
         var glowing = new TopMostGroup3D { EnableTopMost = true };
         Viewport.Items.Add(glowing);
 
-        foreach (var (anchor, substance, radius, hpa) in Nuclei)
+        foreach (var (anchor, substance, radius, hpa) in Structures.Nuclei)
         {
             var sphere = new MeshBuilder();
             sphere.AddSphere(_model.Anchors[anchor], radius, 20, 14);
@@ -259,11 +256,11 @@ public partial class BrainView : UserControl
         {
             Color4 c;
             var strength = 0.3f;
-            if (Cb1Resting.Contains(key))
+            if (Structures.Cb1Resting.Contains(key))
             {
                 c = _restingEmissive[key];
             }
-            else if (Cb1Recolored.Contains(key))
+            else if (Structures.Cb1Recolored.Contains(key))
             {
                 c = material.EmissiveColor;
             }
@@ -437,75 +434,16 @@ public partial class BrainView : UserControl
         string? text = null;
         if (region.Key is { } key)
         {
-            text = RegionName(key) + RegionSubstances(key, frame);
+            text = Structures.Name(key) + Structures.SubstancesText(key, frame);
         }
         else if (nucleus >= 0)
         {
-            var (anchor, substance, _, _) = Nuclei[nucleus];
-            text = $"{RegionName(anchor)}\n{substance.Abbreviation()} {frame.C[(int)substance]:0.00}, release {_release[(int)substance]:+0.00;-0.00;0.00}/s";
+            var (anchor, substance, _, _) = Structures.Nuclei[nucleus];
+            text = $"{Structures.Name(anchor)}\n{substance.Abbreviation()} {frame.C[(int)substance]:0.00}, release {_release[(int)substance]:+0.00;-0.00;0.00}/s";
         }
 
         InfoPanel.Visibility = text is null ? Visibility.Collapsed : Visibility.Visible;
         Info.Text = text ?? "";
-    }
-
-    private static string RegionSubstances(string key, TickRecord f)
-    {
-        Substance[] shown = key switch
-        {
-            "hypothalamus" => [Substance.Oxytocin, Substance.Cortisol],
-            "pineal" => [Substance.Melatonin],
-            "pituitary" => [Substance.GrowthHormone, Substance.Oxytocin],
-            "amygdala_l" or "amygdala_r" => [Substance.Cortisol, Substance.Norepinephrine],
-            "hippocampus_l" or "hippocampus_r" => [Substance.Acetylcholine, Substance.Cortisol],
-            "caudate_l" or "caudate_r" or "putamen_l" or "putamen_r" => [Substance.Dopamine],
-            _ when key.StartsWith("frontal", StringComparison.Ordinal) => [Substance.Dopamine, Substance.Norepinephrine, Substance.Gaba],
-            _ => [Substance.Norepinephrine, Substance.Gaba],
-        };
-        var text = "\n" + string.Join("   ", shown.Select(s => $"{s.Abbreviation()} {f.C[(int)s]:0.00}"));
-        var cb1Dense = Cb1Resting.Contains(key) || Cb1Recolored.Contains(key) || key.StartsWith("frontal", StringComparison.Ordinal);
-        return cb1Dense
-            ? text + $"\nAEA {f.C[(int)Substance.Anandamide]:0.00}   2-AG {f.C[(int)Substance.Arachidonoylglycerol]:0.00}   CB1 tone {f.Cb1:+0.00;-0.00;0.00}"
-            : text;
-    }
-
-    private static string RegionName(string key)
-    {
-        var side = key.EndsWith("_l", StringComparison.Ordinal) ? " (left)" : key.EndsWith("_r", StringComparison.Ordinal) ? " (right)" : "";
-        var name = key.TrimEnd('l', 'r').TrimEnd('_') switch
-        {
-            "frontal" => "Frontal lobe",
-            "parietal" => "Parietal lobe",
-            "temporal" => "Temporal lobe",
-            "occipital" => "Occipital lobe",
-            "limbic" => "Cingulate and parahippocampal gyri",
-            "insula" => "Insula",
-            "orbital" => "Orbital gyri",
-            "thalamus" => "Thalamus",
-            "caudate" => "Caudate nucleus",
-            "putamen" => "Putamen",
-            "pallidus" => "Globus pallidus",
-            "hippocampus" => "Hippocampus",
-            "amygdala" => "Amygdala",
-            "hypothalamus" => "Hypothalamus",
-            "mammillary" => "Mammillary body",
-            "corpus_callosum" => "Corpus callosum",
-            "fornix" => "Fornix",
-            "midbrain" => "Midbrain",
-            "pons" => "Pons",
-            "medulla" => "Medulla oblongata",
-            "cerebellum" => "Cerebellum",
-            "pineal" => "Pineal gland",
-            "pituitary" => "Pituitary gland",
-            "locus_coeruleus" => "Locus coeruleus",
-            "raphe" => "Raphe nuclei",
-            "vta" => "VTA and substantia nigra",
-            "basal_forebrain" => "Nucleus basalis",
-            "scn" => "Suprachiasmatic nucleus",
-            "adrenal" => "Adrenal glands (HPA axis, not to scale)",
-            var other => other,
-        };
-        return name + side;
     }
 
     private static PhongMaterial RegionMaterial(string group) => group switch
@@ -553,19 +491,6 @@ public partial class BrainView : UserControl
         var c = Rgb(hex) * intensity;
         return new Color4(c.X, c.Y, c.Z, 1);
     }
-
-    /// <summary>Proxy spheres for nuclei too small to have meshes, at the anchors MeshPrep computed.</summary>
-    private static readonly (string Anchor, Substance Substance, float Radius, bool Hpa)[] Nuclei =
-    [
-        ("locus_coeruleus_l", Substance.Norepinephrine, 0.045f, false),
-        ("locus_coeruleus_r", Substance.Norepinephrine, 0.045f, false),
-        ("raphe", Substance.Serotonin, 0.05f, false),
-        ("vta", Substance.Dopamine, 0.055f, false),
-        ("basal_forebrain_l", Substance.Acetylcholine, 0.045f, false),
-        ("basal_forebrain_r", Substance.Acetylcholine, 0.045f, false),
-        ("scn", Substance.Melatonin, 0.035f, false),
-        ("adrenal", Substance.Cortisol, 0.09f, true),
-    ];
 
     private static readonly (string Anchor, string Label)[] Labels =
     [
