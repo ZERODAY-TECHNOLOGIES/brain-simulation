@@ -143,12 +143,15 @@ public sealed class ChemicalState
 
     public ChemistrySnapshot Save() => new([.. C], [.. _pending.Select(p => p.ToArray())], _slot, Tick);
 
+    /// <summary>A snapshot from before Phase 8 has ten substances; the endocannabinoids then start at rest (D-36).</summary>
     public void Restore(ChemistrySnapshot snapshot)
     {
-        Array.Copy(snapshot.C, C, N);
+        Array.Fill(C, RestingBaseline);
+        Array.Copy(snapshot.C, C, Math.Min(snapshot.C.Length, N));
         for (var i = 0; i < _pending.Length; i++)
         {
-            Array.Copy(snapshot.Pending[i], _pending[i], N);
+            Array.Clear(_pending[i]);
+            Array.Copy(snapshot.Pending[i], _pending[i], Math.Min(snapshot.Pending[i].Length, N));
         }
 
         _slot = snapshot.Slot;

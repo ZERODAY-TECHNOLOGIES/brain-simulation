@@ -132,8 +132,10 @@ public sealed class Brain
         _awakeningUntil = checkpoint.AwakeningUntil;
         Chemistry.Restore(checkpoint.Chemistry);
         Chemistry.Asleep = Asleep;
-        Array.Copy(checkpoint.MeanC, Receptors.MeanC, Substances.Count);
-        Array.Copy(checkpoint.Rho, Receptors.Rho, Substances.Count);
+        Array.Fill(Receptors.MeanC, Receptors.Baseline);
+        Array.Fill(Receptors.Rho, 1.0);
+        Array.Copy(checkpoint.MeanC, Receptors.MeanC, Math.Min(checkpoint.MeanC.Length, Substances.Count));
+        Array.Copy(checkpoint.Rho, Receptors.Rho, Math.Min(checkpoint.Rho.Length, Substances.Count));
         Clock.Restore(checkpoint.Clock);
         Modulation.Compute(Chemistry.C, Receptors);
     }

@@ -30,5 +30,5 @@ public sealed class ConfigTests : IDisposable
     }
 
     [Fact]
-    public void The_shipped_config_loads() => Assert.Equal(10, EngineConfig.LoadDefault().HalfLives().Length);
+    public void The_shipped_config_loads() => Assert.Equal(12, EngineConfig.LoadDefault().HalfLives().Length); // the spec's ten and the two endocannabinoids (D-36)
 }

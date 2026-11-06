@@ -119,7 +119,7 @@
         <ItemsControl Grid.Row="1" Grid.Column="1" ItemsSource="{Binding WCells}">
           <ItemsControl.ItemsPanel>
             <ItemsPanelTemplate>
-              <UniformGrid Columns="10" />
+              <UniformGrid Columns="12" />
             </ItemsPanelTemplate>
           </ItemsControl.ItemsPanel>
           <ItemsControl.ItemTemplate>

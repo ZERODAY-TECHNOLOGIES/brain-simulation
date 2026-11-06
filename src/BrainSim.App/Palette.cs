@@ -25,6 +25,8 @@ public static class Palette
         "#34D399", // GH
         "#C7D2FE", // MEL
         "#A3826B", // ADO
+        "#D9F99D", // AEA
+        "#84CC16", // 2-AG
     ];
 
     public static string Hex(Substance s) => SubstanceHex[(int)s];

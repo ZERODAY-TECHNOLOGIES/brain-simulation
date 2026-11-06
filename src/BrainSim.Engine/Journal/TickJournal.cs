@@ -121,6 +121,9 @@ public sealed class TickJournal : IAsyncDisposable
             .Where(f => f.Name.StartsWith("m_", StringComparison.Ordinal)).Select(f => f.Name[2..]).ToArray();
         var columns = new Columns(channelNames);
 
+        // A journal from before Phase 8 has no endocannabinoid columns: they read as resting values (D-36).
+        var present = reader.Schema.DataFields.Select(f => f.Name).ToHashSet();
+
         for (var g = 0; g < reader.RowGroupCount; g++)
         {
             using var group = reader.OpenRowGroupReader(g);
@@ -135,11 +138,11 @@ public sealed class TickJournal : IAsyncDisposable
             await group.ReadAsync(columns.Phase, phases.AsMemory());
             var tokens = new string?[n];
             await group.ReadAsync(columns.Token, tokens.AsMemory());
-            var c = await ReadVectorAsync(group, columns.C, n);
-            var baseline = await ReadVectorAsync(group, columns.Baseline, n);
-            var meanC = await ReadVectorAsync(group, columns.MeanC, n);
-            var rho = await ReadVectorAsync(group, columns.Rho, n);
-            var m = await ReadVectorAsync(group, columns.M, n);
+            var c = await ReadVectorAsync(group, columns.C, n, present, 1.0);
+            var baseline = await ReadVectorAsync(group, columns.Baseline, n, present, 1.0);
+            var meanC = await ReadVectorAsync(group, columns.MeanC, n, present, 1.0);
+            var rho = await ReadVectorAsync(group, columns.Rho, n, present, 1.0);
+            var m = await ReadVectorAsync(group, columns.M, n, present, 0.0);
 
             for (var i = 0; i < n; i++)
             {
@@ -173,7 +176,8 @@ public sealed class TickJournal : IAsyncDisposable
         return values;
     }
 
-    private static async Task<double[][]> ReadVectorAsync(ParquetRowGroupReader group, DataField[] fields, int rows)
+    private static async Task<double[][]> ReadVectorAsync(
+        ParquetRowGroupReader group, DataField[] fields, int rows, IReadOnlySet<string> present, double missing)
     {
         var result = new double[rows][];
         for (var i = 0; i < rows; i++)
@@ -184,7 +188,15 @@ public sealed class TickJournal : IAsyncDisposable
         var column = new double[rows];
         for (var j = 0; j < fields.Length; j++)
         {
-            await group.ReadAsync(fields[j], column.AsMemory());
+            if (present.Contains(fields[j].Name))
+            {
+                await group.ReadAsync(fields[j], column.AsMemory());
+            }
+            else
+            {
+                Array.Fill(column, missing);
+            }
+
             for (var i = 0; i < rows; i++)
             {
                 result[i][j] = column[i];

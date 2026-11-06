@@ -23,6 +23,8 @@ half_life:
   GH: 12000
   MEL: 18000
   ADO: 1500
+  AEA: 3000                   # ours, not in spec: endocannabinoid tone, cleared slowly by FAAH (D-36)
+  2-AG: 600                   # ours, not in spec: made on demand, cleared fast by MAGL (D-36)
 
 # W, per tick. Effect of the source's deviation from baseline on the target.
 # The slow OXT, 5-HT, CORT loops are scaled by 0.4: with the spec values -K + W is unstable (D-20).
@@ -43,6 +45,10 @@ interactions:
   - { from: OXT,  to: CORT, w: -0.00008 }   # spec -0.0002, x0.4 (D-20)
   - { from: CORT, to: GH,   w: -0.0002 }
   - { from: 5-HT, to: CORT, w: -0.00004 }   # spec -0.0001, x0.4 (D-20)
+  # Endocannabinoids, ours, not in spec (D-36). The CORT and 2-AG loop is negative feedback.
+  - { from: CORT, to: 2-AG, w: 0.0004 }     # glucocorticoids recruit 2-AG
+  - { from: 2-AG, to: CORT, w: -0.0001 }    # 2-AG ends the HPA response
+  - { from: OXT,  to: AEA,  w: 0.0003 }     # oxytocin mobilizes AEA
 
 # Tolerance: receptor density rho follows the long-term mean C-bar.
 receptors:
