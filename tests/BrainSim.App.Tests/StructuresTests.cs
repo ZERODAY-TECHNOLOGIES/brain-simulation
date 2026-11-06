@@ -73,6 +73,15 @@ public class StructuresTests
     }
 
     [Theory]
+    [InlineData("vta", Substance.Dopamine)]
+    [InlineData("locus_coeruleus_l", Substance.Norepinephrine)]
+    [InlineData("raphe", Substance.Serotonin)]
+    [InlineData("scn", Substance.Melatonin)]
+    [InlineData("hippocampus_l", null)]   // regions have no single substance to open
+    public void Open_in_lab_targets_the_nucleus_substance(string key, Substance? substance) =>
+        Assert.Equal(substance, Structures.LabSubstance(key));
+
+    [Theory]
     [InlineData("temporal_l:cortex,hippocampus_l:subcortical,vta:nucleus", "vta")]          // nuclei are drawn on top
     [InlineData("temporal_l:cortex,hippocampus_l:subcortical,thalamus_l:subcortical", "hippocampus_l")]
     [InlineData("frontal_l:cortex,frontal_r:cortex", "frontal_l")]                           // only cortex: the nearest

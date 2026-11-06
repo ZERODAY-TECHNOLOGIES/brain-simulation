@@ -109,6 +109,10 @@ public static class Structures
             .ThenBy(s => s.Name, StringComparer.Ordinal),
     ];
 
+    /// <summary>The substance a nucleus releases, which "Open in Lab" shows; null for regions.</summary>
+    public static Substance? LabSubstance(string key) =>
+        Array.Find(Nuclei, n => n.Anchor == key) is { Anchor: not null } n ? n.Substance : null;
+
     /// <summary>
     /// What a click selects, from the structures under the pointer, nearest first. The cortex is a see-through shell in
     /// front of everything, so a nucleus (drawn on top) wins, then the nearest deep structure, and only then the cortex.

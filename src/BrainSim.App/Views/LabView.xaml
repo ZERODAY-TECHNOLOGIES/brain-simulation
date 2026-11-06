@@ -47,9 +47,19 @@
         <TextBlock Grid.Column="4" Text="Baseline (awake)" Style="{StaticResource Muted}" />
         <TextBlock Grid.Column="5" Text="Half-life (ticks)" Style="{StaticResource Muted}" />
       </Grid>
-      <ItemsControl ItemsSource="{Binding SubstanceRows}">
+      <ItemsControl x:Name="Rows" ItemsSource="{Binding SubstanceRows}">
         <ItemsControl.ItemTemplate>
           <DataTemplate>
+            <Border CornerRadius="4">
+              <Border.Style>
+                <Style TargetType="Border">
+                  <Style.Triggers>
+                    <DataTrigger Binding="{Binding Highlighted}" Value="True">
+                      <Setter Property="Background" Value="#33F59E0B" />
+                    </DataTrigger>
+                  </Style.Triggers>
+                </Style>
+              </Border.Style>
             <Grid Margin="0,2">
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="56" />
@@ -81,6 +91,7 @@
               </StackPanel>
               <TextBlock Grid.Column="6" Text="{Binding Error}" Foreground="{StaticResource WarnBrush}" VerticalAlignment="Center" Margin="8,0,0,0" />
             </Grid>
+            </Border>
           </DataTemplate>
         </ItemsControl.ItemTemplate>
       </ItemsControl>

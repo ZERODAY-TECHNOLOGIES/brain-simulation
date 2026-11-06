@@ -38,6 +38,8 @@ public partial class BrainView : UserControl
     private readonly Selection _selection = new();
     private readonly ClickTracker _clicks = new();
     private string? _cardText;
+    private bool _syncingList;
+    private TimeSpan _lastInput;
 
     private const double Cb1FullGlow = 0.15; // about the tone with 2-AG at twice its resting level
     private readonly List<(MeshGeometryModel3D Model, PhongMaterial Material, Substance Substance, bool Hpa)> _nuclei = [];
@@ -115,6 +117,10 @@ public partial class BrainView : UserControl
         Navigation.Bind(Viewport);
         Viewport.PreviewMouseLeftButtonDown += OnPressed;
         Viewport.PreviewMouseLeftButtonUp += OnReleased;
+        Viewport.PreviewMouseDown += (_, _) => Keyboard.Focus(this); // keys reach the view after a click in it
+        Viewport.PreviewMouseMove += (_, _) => _lastInput = _clock.Elapsed;
+        Viewport.PreviewMouseWheel += (_, _) => _lastInput = _clock.Elapsed;
+        PreviewKeyDown += OnKey;
 
         _ambient = new AmbientLight3D { Color = Color.FromRgb(0x30, 0x38, 0x44) };
         Viewport.Items.Add(_ambient);
@@ -189,6 +195,7 @@ public partial class BrainView : UserControl
         _labels = new BillboardTextModel3D { Geometry = text };
         Viewport.Items.Add(_labels);
 
+        FocusList.ItemsSource = Structures.Catalog(_model);
         SetCamera("lateral", animate: false);
         ApplyLayers();
     }
@@ -258,6 +265,69 @@ public partial class BrainView : UserControl
         ApplyFade();
         UpdateLighting(frame);
         UpdateCard(frame);
+        Spin(now, dt);
+    }
+
+    /// <summary>The idle turn: around the current target, after 5 s without input, when Auto-rotate is on.</summary>
+    private void Spin(TimeSpan now, float dt)
+    {
+        if (!IdleSpin.Due(AutoRotate.IsChecked == true, _lastInput, now) || Viewport.Camera is not HelixToolkit.Wpf.SharpDX.ProjectionCamera camera)
+        {
+            return;
+        }
+
+        var yaw = IdleSpin.DegreesPerSecond * MathF.PI / 180 * dt;
+        Move(camera, (position, target, up) => OrbitCamera.Orbit(position, target, up, yaw, 0));
+    }
+
+    /// <summary>Arrows orbit, + and - zoom, Esc shows the whole brain. Only while the 3D view has the keyboard.</summary>
+    private void OnKey(object sender, KeyEventArgs e)
+    {
+        var action = NavKeys.Map(e.Key);
+        if (action.Kind == NavKind.None || e.OriginalSource is ComboBox or TextBox)
+        {
+            return;
+        }
+
+        _lastInput = _clock.Elapsed;
+        e.Handled = true;
+        if (action.Kind == NavKind.Reset)
+        {
+            SetCamera("lateral", animate: true);
+        }
+        else if (Viewport.Camera is HelixToolkit.Wpf.SharpDX.ProjectionCamera camera)
+        {
+            Move(camera, (position, target, up) => OrbitCamera.Apply(action, position, target, up));
+        }
+    }
+
+    /// <summary>Moves the camera and keeps it looking at the same target, so Helix keeps orbiting around it.</summary>
+    private static void Move(HelixToolkit.Wpf.SharpDX.ProjectionCamera camera, Func<System.Numerics.Vector3, System.Numerics.Vector3, System.Numerics.Vector3, System.Numerics.Vector3> move)
+    {
+        static System.Numerics.Vector3 V(Point3D p) => new((float)p.X, (float)p.Y, (float)p.Z);
+        static System.Numerics.Vector3 D(Vector3D d) => new((float)d.X, (float)d.Y, (float)d.Z);
+        var position = V(camera.Position);
+        var target = position + D(camera.LookDirection);
+        var moved = move(position, target, D(camera.UpDirection));
+        camera.Position = new Point3D(moved.X, moved.Y, moved.Z);
+        var look = target - moved;
+        camera.LookDirection = new Vector3D(look.X, look.Y, look.Z);
+    }
+
+    private void OnFocusListChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!_syncingList && FocusList.SelectedItem is Structure s)
+        {
+            FocusOn(s.Key);
+        }
+    }
+
+    private void OnOpenInLab(object sender, RoutedEventArgs e)
+    {
+        if (_selection.Key is { } key && Structures.LabSubstance(key) is { } substance)
+        {
+            _viewModel?.OpenInLab(substance);
+        }
     }
 
     /// <summary>With a structure in focus, everything else keeps <see cref="Selection.Faded"/> of its alpha and glow.</summary>
@@ -370,6 +440,10 @@ public partial class BrainView : UserControl
     private void ShowSelection()
     {
         var key = _selection.Key;
+        _syncingList = true;
+        FocusList.SelectedItem = FocusList.Items.OfType<Structure>().FirstOrDefault(s => s.Key == key);
+        _syncingList = false;
+        OpenInLabButton.Visibility = key is not null && Structures.LabSubstance(key) is not null ? Visibility.Visible : Visibility.Collapsed;
         Card.Visibility = key is null ? Visibility.Collapsed : Visibility.Visible;
         CardTitle.Text = key is null ? "" : Structures.Name(key);
         _cardText = null;

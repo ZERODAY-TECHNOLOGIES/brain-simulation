@@ -66,6 +66,22 @@ public class OrbitCameraTests
         Assert.Equal(175, AngleFromUp(under, Vector3.Zero), 2);
     }
 
+    [Fact]
+    public void A_key_moves_the_camera_the_way_its_action_says()
+    {
+        var target = new Vector3(0, 0.2f, 0);
+        var position = new Vector3(-4, 0.2f, 0);
+
+        var orbited = OrbitCamera.Apply(NavKeys.Map(System.Windows.Input.Key.Right), position, target, Up);
+        var zoomed = OrbitCamera.Apply(NavKeys.Map(System.Windows.Input.Key.Add), position, target, Up);
+        var ignored = OrbitCamera.Apply(NavKeys.Map(System.Windows.Input.Key.A), position, target, Up);
+
+        Assert.Equal(4, Vector3.Distance(orbited, target), 4);
+        Assert.Equal(10, Degrees(MathF.Acos(Vector3.Dot(Vector3.Normalize(orbited - target), Vector3.Normalize(position - target)))), 2);
+        Assert.Equal(4 * 0.85f, Vector3.Distance(zoomed, target), 4);
+        Assert.Equal(position, ignored);
+    }
+
     [Theory]
     [InlineData(0.5f, 2.0f)]    // closer, not past min
     [InlineData(0.1f, 1.0f)]    // clamped at min

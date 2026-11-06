@@ -42,6 +42,14 @@ public static class OrbitCamera
         return target + distance * (MathF.Sin(newFromUp) * Vector3.Normalize(level) + MathF.Cos(newFromUp) * u);
     }
 
+    /// <summary>Where a keyboard move takes the camera. Zoom stays between 0.3 and 12 scene units from the target.</summary>
+    public static Vector3 Apply(NavAction action, Vector3 position, Vector3 target, Vector3 up) => action.Kind switch
+    {
+        NavKind.Orbit => Orbit(position, target, up, action.Yaw, action.Pitch),
+        NavKind.Zoom => Zoom(position, target, action.Zoom, 0.3f, 12f),
+        _ => position,
+    };
+
     /// <summary>Moves the camera toward or away from the target by <paramref name="factor"/>, within [min, max].</summary>
     public static Vector3 Zoom(Vector3 position, Vector3 target, float factor, float min, float max)
     {

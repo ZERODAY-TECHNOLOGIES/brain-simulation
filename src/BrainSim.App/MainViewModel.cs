@@ -439,6 +439,23 @@ public sealed partial class MainViewModel : ObservableObject
     // Lab, called by the rows.
     public void Inject(Substance s, double amount) => _host.Inject(s, amount);
 
+    /// <summary>Raised when the 3D view asks for a substance's Lab row. The window brings the Lab forward.</summary>
+    public event Action<Substance>? LabRequested;
+
+    /// <summary>Shows a substance in the Lab: its row is highlighted for 2 s (D-37).</summary>
+    public void OpenInLab(Substance s)
+    {
+        var row = SubstanceRows.First(r => r.Substance == s);
+        row.Highlighted = true;
+        var timer = new DispatcherTimer(TimeSpan.FromSeconds(2), DispatcherPriority.Normal, (sender, _) =>
+        {
+            row.Highlighted = false;
+            ((DispatcherTimer)sender!).Stop();
+        }, _dispatcher);
+        timer.Start();
+        LabRequested?.Invoke(s);
+    }
+
     public void Hold(Substance s, double? level) => _host.Hold(s, level);
 
     public void SetHalfLife(Substance s, double halfLife)
@@ -698,6 +715,7 @@ public sealed partial class SubstanceRow : ObservableObject
     [ObservableProperty] private double _value = 1;
     [ObservableProperty] private double _rho = 1;
     [ObservableProperty] private string _status = "normal";
+    [ObservableProperty] private bool _highlighted;
     [ObservableProperty] private bool _shown = true;
     [ObservableProperty] private string _amount = "0.5";
     [ObservableProperty] private bool _holding;

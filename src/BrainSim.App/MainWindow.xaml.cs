@@ -21,6 +21,14 @@ public partial class MainWindow : Window
         }
 
         Loaded += (_, _) => LoadLayout();
+        viewModel.LabRequested += _ =>
+        {
+            if (Dock.Layout.Descendents().OfType<LayoutAnchorable>().FirstOrDefault(a => a.ContentId == "lab") is { } lab)
+            {
+                lab.IsSelected = true;
+                lab.IsActive = true;
+            }
+        };
     }
 
     private void OnSettings(object sender, RoutedEventArgs e) =>
