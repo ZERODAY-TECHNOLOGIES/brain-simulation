@@ -15,6 +15,9 @@ public partial class App : Application
             ? custom
             : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "BrainSim");
 
+    /// <summary>Probes retrained in Settings, one file per embedding model and prefix (D-39).</summary>
+    public static string ProbesDirectory => Path.Combine(DataDirectory, "probes");
+
     private EngineHost? _host;
 
     protected override async void OnStartup(StartupEventArgs e)
@@ -30,10 +33,11 @@ public partial class App : Application
                 config = config with { Llm = settings.ApplyTo(config.Llm) };
             }
 
-            // Probes trained on another embedding model would read noise, so they stay off until retrained.
-            var probeFile = ProbeFile.LoadDefault();
-            var probesFit = probeFile is null || probeFile.Fits(config.Llm);
-            var probes = probesFit ? probeFile?.Probes ?? [] : [];
+            // Probes trained on another embedding model would read noise, so only probes for this one are used:
+            // retrained in Settings, or the shipped ones (D-35, D-39).
+            var probeFile = ProbeFile.Pick(ProbesDirectory, config.Llm);
+            var probesFit = probeFile is not null || ProbeFile.LoadDefault() is null;
+            var probes = probeFile?.Probes ?? [];
             _host = new EngineHost(config, LmStudioClient.Create(config.Llm), probes, DataDirectory);
             var viewModel = new MainViewModel(_host, config, probes.Count, probesFit);
             await _host.StartAsync();
@@ -44,7 +48,7 @@ public partial class App : Application
 
             if (!probesFit)
             {
-                _host.Report($"The appraisal probes were trained on {probeFile!.EmbeddingModel}, not {config.Llm.EmbeddingModel}. They are off until retrained with tools/ProbeTrainer.");
+                _host.Report($"No appraisal probes were trained on {config.Llm.EmbeddingModel}, so messages are not appraised. Retrain them in Settings.");
             }
 
             var window = new MainWindow(viewModel);

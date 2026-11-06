@@ -79,7 +79,9 @@
         </Grid>
 
         <TextBlock Foreground="{StaticResource WarnBrush}" TextWrapping="Wrap" Margin="0,12,0,0"
-                   Text="Changing the embedding model or prefix turns the appraisal probes off until they are retrained (tools/ProbeTrainer), and facts already in memory will no longer be recalled reliably." />
+                   Text="The appraisal probes read embeddings from one model and prefix. After changing either, retrain them here, or messages will not be appraised. Facts already in memory will no longer be recalled reliably." />
+        <Button x:Name="RetrainButton" Content="Retrain probes for this embedding model" HorizontalAlignment="Left" Padding="12,2" Margin="0,8,0,0"
+                Click="OnRetrain" ToolTip="Downloads GoEmotions and tweet_eval and embeds about 24,000 short texts with the embedding settings above. A few minutes." />
 
         <TextBlock x:Name="Status" Style="{StaticResource Number}" TextWrapping="Wrap" Margin="0,12,0,0" />
       </StackPanel>
