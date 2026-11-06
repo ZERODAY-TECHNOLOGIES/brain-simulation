@@ -50,15 +50,18 @@ public static class NavKeys
 {
     private const float Step = 10 * MathF.PI / 180;
 
-    public static NavAction Map(Key key) => key switch
+    private static readonly Dictionary<Key, NavAction> Actions = new()
     {
-        Key.Left => new(NavKind.Orbit, Yaw: -Step),
-        Key.Right => new(NavKind.Orbit, Yaw: Step),
-        Key.Up => new(NavKind.Orbit, Pitch: Step),
-        Key.Down => new(NavKind.Orbit, Pitch: -Step),
-        Key.Add or Key.OemPlus => new(NavKind.Zoom, Zoom: 0.85f),
-        Key.Subtract or Key.OemMinus => new(NavKind.Zoom, Zoom: 1.15f),
-        Key.Escape => new(NavKind.Reset),
-        _ => new(NavKind.None),
+        [Key.Left] = new(NavKind.Orbit, Yaw: -Step),
+        [Key.Right] = new(NavKind.Orbit, Yaw: Step),
+        [Key.Up] = new(NavKind.Orbit, Pitch: Step),
+        [Key.Down] = new(NavKind.Orbit, Pitch: -Step),
+        [Key.Add] = new(NavKind.Zoom, Zoom: 0.85f),
+        [Key.OemPlus] = new(NavKind.Zoom, Zoom: 0.85f),
+        [Key.Subtract] = new(NavKind.Zoom, Zoom: 1.15f),
+        [Key.OemMinus] = new(NavKind.Zoom, Zoom: 1.15f),
+        [Key.Escape] = new(NavKind.Reset),
     };
+
+    public static NavAction Map(Key key) => Actions.GetValueOrDefault(key, new NavAction(NavKind.None));
 }

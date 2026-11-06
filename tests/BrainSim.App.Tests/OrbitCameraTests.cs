@@ -82,6 +82,16 @@ public class OrbitCameraTests
         Assert.Equal(position, ignored);
     }
 
+    [Fact]
+    public void Straight_above_the_target_a_pitch_leaves_the_camera_where_it_is()
+    {
+        var position = new Vector3(0, 4, 0);
+
+        var moved = OrbitCamera.Orbit(position, Vector3.Zero, Up, yaw: 0.3f, pitch: 0.2f);
+
+        Assert.True(Vector3.Distance(position, moved) < 1e-5f, $"{moved}");
+    }
+
     [Theory]
     [InlineData(0.5f, 2.0f)]    // closer, not past min
     [InlineData(0.1f, 1.0f)]    // clamped at min

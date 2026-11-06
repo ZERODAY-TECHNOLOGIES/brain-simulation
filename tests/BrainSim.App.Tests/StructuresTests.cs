@@ -48,6 +48,12 @@ public class StructuresTests
     [InlineData("pineal", "\nMEL 2.00")]
     [InlineData("amygdala_l", "\nCORT 1.20   NE 1.50\nAEA 1.00   2-AG 1.00   CB1 tone 0.00")]
     [InlineData("thalamus_r", "\nNE 1.50   GABA 1.00")]
+    [InlineData("hypothalamus", "\nOXT 1.00   CORT 1.20")]
+    [InlineData("pituitary", "\nGH 1.00   OXT 1.00")]
+    [InlineData("hippocampus_r", "\nACh 1.00   CORT 1.20\nAEA 1.00   2-AG 1.00   CB1 tone 0.00")]
+    [InlineData("putamen_r", "\nDA 1.00\nAEA 1.00   2-AG 1.00   CB1 tone 0.00")]
+    [InlineData("frontal_l", "\nDA 1.00   NE 1.50   GABA 1.00\nAEA 1.00   2-AG 1.00   CB1 tone 0.00")]
+    [InlineData("pons", "\nNE 1.50   GABA 1.00")]
     public void Hover_lists_the_substances_of_a_region(string key, string text) =>
         Assert.Equal(text, Structures.SubstancesText(key, Frame()));
 
