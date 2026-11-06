@@ -1,6 +1,8 @@
 using System.IO;
 using System.Net.Http;
 using System.Windows;
+using System.Windows.Controls;
+using BrainSim.App.Settings;
 using BrainSim.Engine.Config;
 using BrainSim.Engine.Llm;
 
@@ -16,6 +18,8 @@ public partial class SettingsWindow : Window
     public SettingsWindow(LlmConfig current)
     {
         InitializeComponent();
+        ChatPresetBox.ItemsSource = BackendPresets.Chat;
+        EmbeddingPresetBox.ItemsSource = BackendPresets.Embedding;
         _current = current;
         Show(LlmSettings.From(current));
     }
@@ -33,6 +37,24 @@ public partial class SettingsWindow : Window
 
     private LlmSettings Entered() =>
         new(BaseUrl.Text, EmbeddingUrl.Text, ChatModel.Text, EmbeddingModel.Text, EmbeddingPrefix.Text, ApiKey.Password, EmbeddingApiKey.Password);
+
+    private void OnChatPreset(object sender, SelectionChangedEventArgs e)
+    {
+        if (ChatPresetBox.SelectedItem is ChatPreset preset)
+        {
+            BaseUrl.Text = preset.BaseUrl;
+            Status.Text = $"{preset.Name}: address filled in. Enter the chat model, and the API key for a hosted vendor.";
+        }
+    }
+
+    private void OnEmbeddingPreset(object sender, SelectionChangedEventArgs e)
+    {
+        if (EmbeddingPresetBox.SelectedItem is EmbeddingPreset preset)
+        {
+            (EmbeddingUrl.Text, EmbeddingModel.Text, EmbeddingPrefix.Text) = BackendPresets.Fill(preset, BaseUrl.Text);
+            Status.Text = $"{preset.Name}: embedding server, model and prefix filled in.";
+        }
+    }
 
     private void OnDefaults(object sender, RoutedEventArgs e)
     {

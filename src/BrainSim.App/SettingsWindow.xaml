@@ -29,6 +29,8 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
           </Grid.RowDefinitions>
           <Grid.Resources>
             <Style TargetType="TextBlock">
@@ -41,29 +43,39 @@
             </Style>
           </Grid.Resources>
 
-          <TextBlock Text="Server address" />
-          <TextBox x:Name="BaseUrl" Grid.Column="1" AutomationProperties.Name="Server address" />
+          <TextBlock Text="Chat preset" />
+          <ComboBox x:Name="ChatPresetBox" Grid.Column="1" Margin="0,4" HorizontalAlignment="Left" MinWidth="180"
+                    AutomationProperties.Name="Chat preset" SelectionChanged="OnChatPreset"
+                    ToolTip="Fills in the usual address of a vendor. Everything stays editable." />
 
-          <TextBlock Grid.Row="1" Text="API key" />
-          <PasswordBox x:Name="ApiKey" Grid.Row="1" Grid.Column="1" Margin="0,4" AutomationProperties.Name="API key"
+          <TextBlock Grid.Row="1" Text="Server address" />
+          <TextBox x:Name="BaseUrl" Grid.Row="1" Grid.Column="1" AutomationProperties.Name="Server address" />
+
+          <TextBlock Grid.Row="2" Text="API key" />
+          <PasswordBox x:Name="ApiKey" Grid.Row="2" Grid.Column="1" Margin="0,4" AutomationProperties.Name="API key"
                        ToolTip="Only for hosted APIs. Sent only to this server. Stored encrypted for your Windows account." />
 
-          <TextBlock Grid.Row="2" Text="Chat model" />
-          <TextBox x:Name="ChatModel" Grid.Row="2" Grid.Column="1" AutomationProperties.Name="Chat model" />
+          <TextBlock Grid.Row="3" Text="Chat model" />
+          <TextBox x:Name="ChatModel" Grid.Row="3" Grid.Column="1" AutomationProperties.Name="Chat model" />
 
-          <TextBlock Grid.Row="3" Text="Embedding server" />
-          <TextBox x:Name="EmbeddingUrl" Grid.Row="3" Grid.Column="1" AutomationProperties.Name="Embedding server"
+          <TextBlock Grid.Row="4" Text="Embedding preset" Margin="0,16,12,4" />
+          <ComboBox x:Name="EmbeddingPresetBox" Grid.Row="4" Grid.Column="1" Margin="0,16,0,4" HorizontalAlignment="Left" MinWidth="180"
+                    AutomationProperties.Name="Embedding preset" SelectionChanged="OnEmbeddingPreset"
+                    ToolTip="Fills in the embedding server, model and prefix. On the chat server itself the embedding server stays empty." />
+
+          <TextBlock Grid.Row="5" Text="Embedding server" />
+          <TextBox x:Name="EmbeddingUrl" Grid.Row="5" Grid.Column="1" AutomationProperties.Name="Embedding server"
                    ToolTip="Leave empty to use the server address above." />
 
-          <TextBlock Grid.Row="4" Text="Embedding API key" />
-          <PasswordBox x:Name="EmbeddingApiKey" Grid.Row="4" Grid.Column="1" Margin="0,4" AutomationProperties.Name="Embedding API key"
+          <TextBlock Grid.Row="6" Text="Embedding API key" />
+          <PasswordBox x:Name="EmbeddingApiKey" Grid.Row="6" Grid.Column="1" Margin="0,4" AutomationProperties.Name="Embedding API key"
                        ToolTip="Used only with a separate embedding server; the API key above never goes to it. Stored encrypted for your Windows account." />
 
-          <TextBlock Grid.Row="5" Text="Embedding model" />
-          <TextBox x:Name="EmbeddingModel" Grid.Row="5" Grid.Column="1" AutomationProperties.Name="Embedding model" />
+          <TextBlock Grid.Row="7" Text="Embedding model" />
+          <TextBox x:Name="EmbeddingModel" Grid.Row="7" Grid.Column="1" AutomationProperties.Name="Embedding model" />
 
-          <TextBlock Grid.Row="6" Text="Embedding prefix" />
-          <TextBox x:Name="EmbeddingPrefix" Grid.Row="6" Grid.Column="1" AutomationProperties.Name="Embedding prefix" />
+          <TextBlock Grid.Row="8" Text="Embedding prefix" />
+          <TextBox x:Name="EmbeddingPrefix" Grid.Row="8" Grid.Column="1" AutomationProperties.Name="Embedding prefix" />
         </Grid>
 
         <TextBlock Foreground="{StaticResource WarnBrush}" TextWrapping="Wrap" Margin="0,12,0,0"
