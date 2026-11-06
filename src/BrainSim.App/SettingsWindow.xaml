@@ -28,6 +28,7 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
           </Grid.RowDefinitions>
           <Grid.Resources>
             <Style TargetType="TextBlock">
@@ -45,7 +46,7 @@
 
           <TextBlock Grid.Row="1" Text="API key" />
           <PasswordBox x:Name="ApiKey" Grid.Row="1" Grid.Column="1" Margin="0,4" AutomationProperties.Name="API key"
-                       ToolTip="Only for hosted APIs. Stored encrypted for your Windows account." />
+                       ToolTip="Only for hosted APIs. Sent only to this server. Stored encrypted for your Windows account." />
 
           <TextBlock Grid.Row="2" Text="Chat model" />
           <TextBox x:Name="ChatModel" Grid.Row="2" Grid.Column="1" AutomationProperties.Name="Chat model" />
@@ -54,11 +55,15 @@
           <TextBox x:Name="EmbeddingUrl" Grid.Row="3" Grid.Column="1" AutomationProperties.Name="Embedding server"
                    ToolTip="Leave empty to use the server address above." />
 
-          <TextBlock Grid.Row="4" Text="Embedding model" />
-          <TextBox x:Name="EmbeddingModel" Grid.Row="4" Grid.Column="1" AutomationProperties.Name="Embedding model" />
+          <TextBlock Grid.Row="4" Text="Embedding API key" />
+          <PasswordBox x:Name="EmbeddingApiKey" Grid.Row="4" Grid.Column="1" Margin="0,4" AutomationProperties.Name="Embedding API key"
+                       ToolTip="Used only with a separate embedding server; the API key above never goes to it. Stored encrypted for your Windows account." />
 
-          <TextBlock Grid.Row="5" Text="Embedding prefix" />
-          <TextBox x:Name="EmbeddingPrefix" Grid.Row="5" Grid.Column="1" AutomationProperties.Name="Embedding prefix" />
+          <TextBlock Grid.Row="5" Text="Embedding model" />
+          <TextBox x:Name="EmbeddingModel" Grid.Row="5" Grid.Column="1" AutomationProperties.Name="Embedding model" />
+
+          <TextBlock Grid.Row="6" Text="Embedding prefix" />
+          <TextBox x:Name="EmbeddingPrefix" Grid.Row="6" Grid.Column="1" AutomationProperties.Name="Embedding prefix" />
         </Grid>
 
         <TextBlock Foreground="{StaticResource WarnBrush}" TextWrapping="Wrap" Margin="0,12,0,0"

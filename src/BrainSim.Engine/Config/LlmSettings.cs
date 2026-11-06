@@ -8,10 +8,11 @@ namespace BrainSim.Engine.Config;
 /// so any OpenAI-compatible server works (LM Studio, Ollama, llama.cpp, vLLM, a hosted API). See D-35.
 /// </summary>
 public sealed record LlmSettings(
-    string BaseUrl, string EmbeddingBaseUrl, string ChatModel, string EmbeddingModel, string EmbeddingPrefix, string ApiKey)
+    string BaseUrl, string EmbeddingBaseUrl, string ChatModel, string EmbeddingModel, string EmbeddingPrefix, string ApiKey,
+    string EmbeddingApiKey = "")
 {
     public static LlmSettings From(LlmConfig llm) =>
-        new(llm.BaseUrl, llm.EmbeddingBaseUrl, llm.ChatModel, llm.EmbeddingModel, llm.EmbeddingPrefix, llm.ApiKey);
+        new(llm.BaseUrl, llm.EmbeddingBaseUrl, llm.ChatModel, llm.EmbeddingModel, llm.EmbeddingPrefix, llm.ApiKey, llm.EmbeddingApiKey);
 
     public LlmConfig ApplyTo(LlmConfig llm) => llm with
     {
@@ -21,6 +22,7 @@ public sealed record LlmSettings(
         EmbeddingModel = EmbeddingModel.Trim(),
         EmbeddingPrefix = EmbeddingPrefix,
         ApiKey = ApiKey.Trim(),
+        EmbeddingApiKey = EmbeddingApiKey.Trim(),
     };
 
     /// <summary>What is wrong with these settings, for the dialog, or null when they can be saved.</summary>
@@ -54,8 +56,9 @@ public static class LlmSettingsFile
 
     public static void Save(string path, LlmSettings settings, Func<string, string> protect)
     {
+        string Protected(string key) => key.Length > 0 ? protect(key) : "";
         var stored = new Stored(settings.BaseUrl, settings.EmbeddingBaseUrl, settings.ChatModel, settings.EmbeddingModel,
-            settings.EmbeddingPrefix, settings.ApiKey.Length > 0 ? protect(settings.ApiKey) : "");
+            settings.EmbeddingPrefix, Protected(settings.ApiKey), Protected(settings.EmbeddingApiKey));
         File.WriteAllText(path, JsonSerializer.Serialize(stored, Json));
     }
 
@@ -87,7 +90,7 @@ public static class LlmSettingsFile
         }
 
         return new LlmSettings(stored.BaseUrl, stored.EmbeddingBaseUrl, stored.ChatModel, stored.EmbeddingModel,
-            stored.EmbeddingPrefix, Key(stored.ApiKeyProtected, unprotect));
+            stored.EmbeddingPrefix, Key(stored.ApiKeyProtected, unprotect), Key(stored.EmbeddingApiKeyProtected, unprotect));
     }
 
     private static string Key(string protectedKey, Func<string, string> unprotect)
@@ -107,6 +110,8 @@ public static class LlmSettingsFile
         }
     }
 
+    /// <summary>The embedding key came with D-39: a file from before it has none, and still loads.</summary>
     private sealed record Stored(
-        string BaseUrl, string EmbeddingBaseUrl, string ChatModel, string EmbeddingModel, string EmbeddingPrefix, string ApiKeyProtected);
+        string BaseUrl, string EmbeddingBaseUrl, string ChatModel, string EmbeddingModel, string EmbeddingPrefix, string ApiKeyProtected,
+        string EmbeddingApiKeyProtected = "");
 }

@@ -136,6 +136,33 @@ public class LmStudioClientTests
     }
 
     [Fact]
+    public async Task A_separate_embedding_server_gets_its_own_key_and_never_the_chat_key()
+    {
+        var split = Config with { ApiKey = "sk-chat", EmbeddingBaseUrl = "http://embedder:1235/v1/", EmbeddingApiKey = "sk-embed" };
+        var chat = new FakeHandler(Sse);
+        var embed = new FakeHandler(Vectors);
+        var models = new FakeHandler("""{"data":[]}""");
+        var ct = TestContext.Current.CancellationToken;
+
+        await foreach (var _ in Client(chat, split).StreamChatAsync([new ChatMessage("user", "hi")], new SamplingParameters(0.7, 0.9, 10), ct)) { }
+        await Client(embed, split).EmbedAsync(["x"], ct);
+        await Client(models, split).ModelsAsync(embeddings: true, ct);
+
+        Assert.Equal(("Bearer sk-chat", "Bearer sk-embed", "Bearer sk-embed"), (chat.Authorization, embed.Authorization, models.Authorization));
+    }
+
+    [Fact]
+    public async Task A_separate_embedding_server_without_a_key_gets_no_authorization_header()
+    {
+        var handler = new FakeHandler(Vectors);
+
+        await Client(handler, Config with { ApiKey = "sk-chat", EmbeddingBaseUrl = "http://embedder:1235/v1/" })
+            .EmbedAsync(["x"], TestContext.Current.CancellationToken);
+
+        Assert.Null(handler.Authorization);
+    }
+
+    [Fact]
     public async Task Without_a_key_no_authorization_header_is_sent()
     {
         var handler = new FakeHandler(Vectors);

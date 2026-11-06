@@ -67,7 +67,7 @@ public sealed class LmStudioClient(HttpClient http, LlmConfig config)
         Func<TChunk?, string?> textOf,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
-        using var request = Request(HttpMethod.Post, new Uri(path, UriKind.Relative), body);
+        using var request = Request(HttpMethod.Post, path, embeddings: false, body);
         using var response = await http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
         response.EnsureSuccessStatusCode();
         using var reader = new StreamReader(await response.Content.ReadAsStreamAsync(cancellationToken));
@@ -97,7 +97,7 @@ public sealed class LmStudioClient(HttpClient http, LlmConfig config)
     public async Task<float[][]> EmbedAsync(IReadOnlyList<string> texts, CancellationToken cancellationToken = default)
     {
         var body = new EmbeddingRequest(config.EmbeddingModel, [.. texts.Select(t => config.EmbeddingPrefix + t)]);
-        using var request = Request(HttpMethod.Post, Endpoint("embeddings", embeddings: true), body);
+        using var request = Request(HttpMethod.Post, "embeddings", embeddings: true, body);
         using var response = await http.SendAsync(request, cancellationToken);
         response.EnsureSuccessStatusCode();
         var result = await response.Content.ReadFromJsonAsync<EmbeddingResponse>(Json, cancellationToken)
@@ -108,28 +108,29 @@ public sealed class LmStudioClient(HttpClient http, LlmConfig config)
     /// <summary>The model ids the chat server (or, with <paramref name="embeddings"/>, the embedding server) offers.</summary>
     public async Task<IReadOnlyList<string>> ModelsAsync(bool embeddings, CancellationToken cancellationToken = default)
     {
-        using var request = Request(HttpMethod.Get, Endpoint("models", embeddings), body: null);
+        using var request = Request(HttpMethod.Get, "models", embeddings, body: null);
         using var response = await http.SendAsync(request, cancellationToken);
         response.EnsureSuccessStatusCode();
         var result = await response.Content.ReadFromJsonAsync<ModelList>(Json, cancellationToken);
         return [.. result?.Data.Select(m => m.Id) ?? []];
     }
 
-    /// <summary>Embeddings may live on their own server; everything else goes to the chat server (the client's base address).</summary>
-    private Uri Endpoint(string path, bool embeddings) =>
-        embeddings && config.EmbeddingBaseUrl.Length > 0 ? new Uri(new Uri(config.EmbeddingBaseUrl), path) : new Uri(path, UriKind.Relative);
-
-    private HttpRequestMessage Request(HttpMethod method, Uri uri, object? body)
+    /// <summary>
+    /// Embeddings may live on their own server, with their own key; everything else goes to the chat server (the
+    /// client's base address) with the chat key. The chat key never leaves for another host (D-39).
+    /// </summary>
+    private HttpRequestMessage Request(HttpMethod method, string path, bool embeddings, object? body)
     {
-        var request = new HttpRequestMessage(method, uri);
+        var separate = embeddings && config.EmbeddingBaseUrl.Length > 0;
+        var request = new HttpRequestMessage(method, separate ? new Uri(new Uri(config.EmbeddingBaseUrl), path) : new Uri(path, UriKind.Relative));
         if (body is not null)
         {
             request.Content = JsonContent.Create(body, body.GetType(), options: Json);
         }
 
-        if (config.ApiKey.Length > 0)
+        if ((separate ? config.EmbeddingApiKey : config.ApiKey) is { Length: > 0 } key)
         {
-            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", config.ApiKey);
+            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", key);
         }
 
         return request;

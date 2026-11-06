@@ -28,10 +28,11 @@ public partial class SettingsWindow : Window
         EmbeddingUrl.Text = s.EmbeddingBaseUrl;
         EmbeddingModel.Text = s.EmbeddingModel;
         EmbeddingPrefix.Text = s.EmbeddingPrefix;
+        EmbeddingApiKey.Password = s.EmbeddingApiKey;
     }
 
     private LlmSettings Entered() =>
-        new(BaseUrl.Text, EmbeddingUrl.Text, ChatModel.Text, EmbeddingModel.Text, EmbeddingPrefix.Text, ApiKey.Password);
+        new(BaseUrl.Text, EmbeddingUrl.Text, ChatModel.Text, EmbeddingModel.Text, EmbeddingPrefix.Text, ApiKey.Password, EmbeddingApiKey.Password);
 
     private void OnDefaults(object sender, RoutedEventArgs e)
     {

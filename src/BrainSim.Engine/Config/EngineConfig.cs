@@ -299,6 +299,9 @@ public sealed record LlmConfig
 
     /// <summary>Sent as a bearer token when set. Comes from the Settings dialog, never from config.yaml in the repo.</summary>
     public string ApiKey { get; init; } = "";
+
+    /// <summary>Sent to a separate embedding server instead of <see cref="ApiKey"/>, which stays with the chat server (D-39).</summary>
+    public string EmbeddingApiKey { get; init; } = "";
     public string ChatModel { get; init; } = "";
     public string EmbeddingModel { get; init; } = "";
     public string EmbeddingPrefix { get; init; } = "";

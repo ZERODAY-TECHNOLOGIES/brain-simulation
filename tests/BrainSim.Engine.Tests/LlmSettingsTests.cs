@@ -36,6 +36,36 @@ public class LlmSettingsTests : IDisposable
     }
 
     [Fact]
+    public void The_embedding_key_is_saved_encrypted_and_loads_back()
+    {
+        var split = Cloud with { EmbeddingApiKey = "sk-embed-456" };
+        LlmSettingsFile.Save(PathOf, split, Protect);
+
+        Assert.DoesNotContain("sk-embed-456", File.ReadAllText(PathOf));
+        Assert.Equal(split, LlmSettingsFile.Load(PathOf, Unprotect));
+        Assert.Equal("sk-embed-456", split.ApplyTo(Defaults).EmbeddingApiKey);
+    }
+
+    /// <summary>A settings.json from before D-39 has one key: it stays the chat key, and the embedding key starts empty.</summary>
+    [Fact]
+    public void An_older_file_without_an_embedding_key_still_loads()
+    {
+        File.WriteAllText(PathOf, """
+            {
+              "base_url": "https://api.example.com/v1/",
+              "embedding_base_url": "http://localhost:1235/v1/",
+              "chat_model": "big-model",
+              "embedding_model": "nomic",
+              "embedding_prefix": "classification: ",
+              "api_key_protected": "enc:321-terces-ks"
+            }
+            """);
+
+        Assert.Equal(Cloud, LlmSettingsFile.Load(PathOf, Unprotect));
+        Assert.Equal("", Cloud.EmbeddingApiKey);
+    }
+
+    [Fact]
     public void No_file_means_no_settings()
     {
         Assert.Null(LlmSettingsFile.Load(PathOf, Unprotect));
