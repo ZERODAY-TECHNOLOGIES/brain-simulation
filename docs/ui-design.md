@@ -42,7 +42,7 @@ bottom. Every panel can be moved, tabbed, floated or hidden. The layout is saved
 |---|---|
 | **Toolbar** | Live or Replay, clock time and mode (Real, or Simulated with factor f), sleep phase, LM Studio status and model name |
 | **Layers** | Toggles: cortex, subcortical structures, nuclei, pathways, HPA axis, labels. Cortex opacity slider |
-| **Brain 3D** | See [3D scene](#3d-scene). Hover a structure for its substances and values. Click a nucleus to open its substance in the Lab |
+| **Brain 3D** | See [3D scene](#3d-scene). Hover a structure for its substances and values. Click one, or pick it in "Focus on", to frame it with the rest faded and a card of its live values; a nucleus's card opens its substance in the Lab (D-37) |
 | **Chat** | The conversation, tokens streaming in. Under each user message a small appraisal line: S, A, W, r, delta. Under each agent reply: T, top-p, max length used. No reward buttons (D-06) |
 | **Chemistry** | Strip charts of all 10 substances with the baseline line at 1.0 (or the current phase target during sleep). Window: 1k, 10k, 100k ticks or a full day. Current values as bars beside the charts |
 | **Receptors** | rho per substance over time. Hill curve per substance with markers for the current C and the baseline. Status per substance: normal, tolerant, withdrawal, sensitized |
@@ -150,8 +150,19 @@ Other structures with a role:
 
 ### Camera
 
-Orbit, pan and zoom with the mouse. Presets: lateral, medial (sagittal cut), top, front.
-Optional slow auto-rotate when idle.
+As in most 3D viewers (D-37):
+
+- Left-drag rotates around the current target, right-drag pans, the wheel zooms.
+- A click without a drag focuses the structure under the pointer: a nucleus first (they are
+  drawn on top), then the nearest deep structure, the see-through cortex last. The camera
+  glides to frame it and orbits around it; everything else keeps 15% of its alpha and glow.
+  A card bottom right shows its name and live values. Clicking empty space, Close, Reset,
+  Esc or a preset brings the whole brain back.
+- "Focus on" (top right) lists every structure by group and focuses it the same way.
+- After a click in the view: arrows orbit in 10 degree steps, + and - zoom, Esc resets.
+- Presets: lateral, medial (sagittal cut), top, front, and Reset.
+- "Auto-rotate" in Layers turns the brain 6 degrees a second after 5 seconds without input.
+- The view's automation status reads "Whole brain" or "Focused on <name>".
 
 ### Performance budget (MX550, 2 GB)
 

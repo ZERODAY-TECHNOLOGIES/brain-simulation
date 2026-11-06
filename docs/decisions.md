@@ -394,6 +394,27 @@ See [conventions.md](conventions.md#git).
     0.5 it turned into an opaque lime shell.
 - **Status:** done.
 
+### D-37. 3D navigation: left-drag orbit, focus with fade, logic outside the view
+- **Date:** 2026-11-06
+- **Context:** The 3D brain used Helix's defaults (right-drag rotates, middle-drag pans), so most
+  people could not find how to turn it, and a click did nothing. The user asked for rotation,
+  focus on structures and the extras below, and for all of it to be tested well.
+- **Decision:**
+  - Left-drag rotates, right-drag pans, the wheel zooms (Helix's mouse bindings replaced).
+  - A click focuses a structure: the camera frames its bounding sphere and orbits around it,
+    the rest fades to 15%, a card shows its live values. Picking prefers nuclei, then deep
+    structures, then cortex, because the cortex is a see-through shell in front of everything.
+  - Extras: a "Focus on" list, keyboard moves, idle auto-rotate, "Open in Lab" for nuclei.
+  - Everything that needs no GPU lives in `Brain3D` (OrbitCamera, Interaction, Navigation,
+    Structures) and is unit tested in a new `tests/BrainSim.App.Tests`; one STA test checks the
+    Helix bindings. Regions start every frame from their resting look, so tints and the fade
+    layer without building up.
+- **Consequence:** Mouse feel (drag, click, keys) needs a person: UIA cannot move the mouse
+  without taking the user's pointer. Building it found and fixed names that lost their last
+  letter ("pinea", "orbita", "adrena"). After a ComboBox dropdown opens through UIA, the window
+  ignores SC_CLOSE; this also happens with the older clock ComboBox and WM_CLOSE still works.
+  Whether a real mouse sees it is not known yet.
+
 ## Open
 
 No open questions right now.
