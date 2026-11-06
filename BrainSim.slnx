@@ -4,6 +4,7 @@
     <Project Path="src/BrainSim.Engine/BrainSim.Engine.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/BrainSim.App.Tests/BrainSim.App.Tests.csproj" />
     <Project Path="tests/BrainSim.Engine.Tests/BrainSim.Engine.Tests.csproj" />
   </Folder>
   <Folder Name="/tools/">
