@@ -30,5 +30,18 @@ public sealed class ConfigTests : IDisposable
     }
 
     [Fact]
+    public void A_mood_channel_must_be_a_modulation_channel()
+    {
+        var yaml = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "config.yaml"));
+        var at = yaml.IndexOf("warm_cold:", yaml.IndexOf("\nmood:", StringComparison.Ordinal), StringComparison.Ordinal);
+        Assert.True(at >= 0, "config.yaml no longer has warm_cold under mood");
+        File.WriteAllText(_path, yaml[..at] + "warm_cool:" + yaml[(at + "warm_cold:".Length)..]);
+
+        var e = Assert.ThrowsAny<Exception>(() => EngineConfig.Load(_path));
+
+        Assert.Contains("warm_cool", e.Message);
+    }
+
+    [Fact]
     public void The_shipped_config_loads() => Assert.Equal(12, EngineConfig.LoadDefault().HalfLives().Length); // the spec's ten and the two endocannabinoids (D-36)
 }

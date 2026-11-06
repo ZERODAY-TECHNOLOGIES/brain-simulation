@@ -25,6 +25,19 @@ public class ModulationTests
     }
 
     [Fact]
+    public void Evaluate_gives_what_compute_would_and_leaves_the_current_values_alone()
+    {
+        var stressed = Enumerable.Repeat(1.0, Substances.Count).ToArray();
+        stressed[(int)Substance.Cortisol] = 2.5;
+        var modulation = ComputeAt(_ => { });
+
+        var projected = modulation.Evaluate(stressed, new ReceptorState(Config));
+
+        Assert.Equal(ComputeAt(c => c[(int)Substance.Cortisol] = 2.5).M, projected);
+        Assert.All(modulation.M, m => Assert.Equal(0.0, m, 12));
+    }
+
+    [Fact]
     public void An_unknown_channel_name_throws_and_names_it()
     {
         var e = Assert.Throws<KeyNotFoundException>(() => ComputeAt(_ => { })["no_such_channel"]);

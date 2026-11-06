@@ -12,7 +12,8 @@ namespace BrainSim.Engine;
 
 /// <summary>One reply, with the appraisal of the message it answers and the facts memory brought back for it.</summary>
 public sealed record AgentReply(
-    string Text, AppraisalSignals Signals, SamplingParameters Sampling, int Tokens, IReadOnlyList<string> Recalled, double Familiarity);
+    string Text, AppraisalSignals Signals, SamplingParameters Sampling, int Tokens, IReadOnlyList<string> Recalled, double Familiarity,
+    string? Mood = null);
 
 /// <summary>Everything needed to pick a session back up: brain, appraisal, conversation and dreams.</summary>
 public sealed record AgentCheckpoint(BrainCheckpoint Brain, AppraiserState Appraisal, List<ChatMessage> History, DreamState? Dreams = null)
@@ -81,7 +82,7 @@ public sealed class Agent
         string message,
         Action<string>? onToken = null,
         CancellationToken cancellationToken = default,
-        Action<AppraisalSignals, SamplingParameters, IReadOnlyList<string>>? onAppraised = null)
+        Action<AppraisalSignals, SamplingParameters, IReadOnlyList<string>, string?>? onAppraised = null)
     {
         // 1. Catch up idle time, sleeping through it if the conditions were met. The message is light and wakes the brain.
         var now = _clock();
@@ -97,13 +98,16 @@ public sealed class Agent
         // 2 to 4. Appraise the message, recall what it cues, and schedule the impulses.
         var (signals, remembered, familiarity, embedding) = await AppraiseAsync(message, cancellationToken);
 
-        // 5. Reduced mode: sampling is fixed from the chemistry at the start of the response.
-        var sampling = Sampling.Compute(Brain.Chemistry.C, _config.Sampling);
-        onAppraised?.Invoke(signals, sampling, remembered);
+        // 5. Reduced mode: sampling and the mood note are fixed for the whole response, from the state once this
+        // message's releases have arrived, so the reply to an insult is already shaped by it (D-04, D-38).
+        var state = Brain.Chemistry.Projected();
+        var sampling = Sampling.Compute(state, _config.Sampling);
+        var mood = MoodNote.Describe(Brain.Modulation.Names, Brain.Modulation.Evaluate(state, Brain.Receptors), _config.Mood);
+        onAppraised?.Invoke(signals, sampling, remembered, mood);
         _history.Add(ChatMessage.User(message));
 
         // 6 to 8. One tick per streamed token.
-        var (reply, tokens) = await StreamReplyAsync(BuildRequest(remembered), sampling, onToken, cancellationToken);
+        var (reply, tokens) = await StreamReplyAsync(BuildRequest(remembered, mood), sampling, onToken, cancellationToken);
 
         // 10. Effort and expected reward. Step 11, the sleep decision, runs on every following idle tick.
         _history.Add(ChatMessage.Assistant(reply));
@@ -117,7 +121,7 @@ public sealed class Agent
         Brain.OnResponseFinished(tokens);
         Appraiser.LearnExpectedReward();
         Encode(message, reply, embedding);
-        return new AgentReply(reply, signals, sampling, tokens, remembered, familiarity);
+        return new AgentReply(reply, signals, sampling, tokens, remembered, familiarity, mood);
     }
 
     /// <summary>
@@ -150,13 +154,18 @@ public sealed class Agent
 
     /// <summary>
     /// One system message, first: chat templates like Qwen's reject a system message anywhere else (D-34).
-    /// Recalled facts ride along with this request only; they never enter the history, so they do not pile up.
+    /// The mood note and recalled facts ride along with this request only; they never enter the history, so they do not pile up.
     /// System notes in the history (a dream broken off by this message) are folded in after them.
     /// </summary>
-    private List<ChatMessage> BuildRequest(IReadOnlyList<string> remembered)
+    private List<ChatMessage> BuildRequest(IReadOnlyList<string> remembered, string? mood)
     {
         var window = _history.TakeLast(_config.Llm.HistoryMessages).ToList();
         var system = new StringBuilder(_config.Llm.SystemPrompt);
+        if (mood is not null)
+        {
+            system.Append("\n\n").Append(mood);
+        }
+
         if (remembered.Count > 0)
         {
             system.Append("\n\nThings you remember:\n").AppendJoin("\n", remembered.Select(f => "- " + f));

@@ -120,6 +120,28 @@ public sealed class ChemicalState
         }
     }
 
+    /// <summary>
+    /// The state once every pending release has arrived: what a message just appraised will do (D-38).
+    /// Held substances stay at their hold, and the result stays within bounds.
+    /// </summary>
+    // ponytail: ignores decay over the impulse spread (10 ticks, short next to every half-life); step a copy if that matters.
+    public double[] Projected()
+    {
+        var projected = new double[N];
+        for (var i = 0; i < N; i++)
+        {
+            var pending = 0.0;
+            foreach (var slot in _pending)
+            {
+                pending += slot[i];
+            }
+
+            projected[i] = double.IsNaN(Hold[i]) ? Math.Clamp(C[i] + pending, _min, _max) : Hold[i];
+        }
+
+        return projected;
+    }
+
     public void Step()
     {
         var impulse = _pending[_slot];

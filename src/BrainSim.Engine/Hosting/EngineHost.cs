@@ -45,8 +45,8 @@ public sealed class EngineHost : IAsyncDisposable
     /// <summary>A reply is streaming. Read from the UI thread, so it is only a hint.</summary>
     public bool IsGenerating => Agent.Brain.IsGenerating;
 
-    /// <summary>The message, its appraisal, the sampling for the reply and the facts memory recalled for it.</summary>
-    public event Action<string, AppraisalSignals, SamplingParameters, IReadOnlyList<string>>? Appraised;
+    /// <summary>The message, its appraisal, the sampling for the reply, the facts memory recalled for it and the mood note (D-38).</summary>
+    public event Action<string, AppraisalSignals, SamplingParameters, IReadOnlyList<string>, string?>? Appraised;
     public event Action<string>? TokenReceived;
     public event Action<AgentReply>? Replied;
     public event Action<string>? Failed;
@@ -229,7 +229,7 @@ public sealed class EngineHost : IAsyncDisposable
                 message,
                 token => TokenReceived?.Invoke(token),
                 cancellationToken,
-                (signals, sampling, recalled) =>
+                (signals, sampling, recalled, mood) =>
                 {
                     var values = new Dictionary<string, double>
                     {
@@ -250,7 +250,7 @@ public sealed class EngineHost : IAsyncDisposable
                         Log(EventKinds.Memory, $"Recalled {recalled.Count} {(recalled.Count == 1 ? "fact" : "facts")}: {string.Join("; ", recalled)}");
                     }
 
-                    Appraised?.Invoke(message, signals, sampling, recalled);
+                    Appraised?.Invoke(message, signals, sampling, recalled, mood);
                 });
 
             Log(EventKinds.Agent, reply.Text, new()

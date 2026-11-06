@@ -111,7 +111,11 @@ public class T9DreamTests
 
         Assert.StartsWith("d0 d1", dream.Text);
         var system = llm.ChatRequests[^1].RootElement.GetProperty("messages")[0].GetProperty("content").GetString();
-        Assert.Equal($"{Config.Llm.SystemPrompt}\n\nYou were dreaming when this message woke you, and you still remember the dream: {dream.Text}", system);
+        // Woken from REM, the brain is groggy, so a mood note comes between the persona and the dream (D-38).
+        Assert.NotNull(reply.Mood);
+        Assert.Equal(
+            $"{Config.Llm.SystemPrompt}\n\n{reply.Mood}\n\nYou were dreaming when this message woke you, and you still remember the dream: {dream.Text}",
+            system);
     }
 
     [Fact]

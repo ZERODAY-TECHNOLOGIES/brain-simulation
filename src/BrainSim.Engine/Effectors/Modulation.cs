@@ -40,7 +40,17 @@ public sealed class Modulation
         throw new KeyNotFoundException($"No modulation channel named '{channel}'.");
     }
 
-    public void Compute(ReadOnlySpan<double> c, ReceptorState receptors)
+    public void Compute(ReadOnlySpan<double> c, ReceptorState receptors) => Fill(c, receptors, M);
+
+    /// <summary>m_k for any state, such as the projected one (D-38). Leaves <see cref="M"/> as it is.</summary>
+    public double[] Evaluate(ReadOnlySpan<double> c, ReceptorState receptors)
+    {
+        var m = new double[_terms.Length];
+        Fill(c, receptors, m);
+        return m;
+    }
+
+    private void Fill(ReadOnlySpan<double> c, ReceptorState receptors, Span<double> m)
     {
         var gabaExcess = Math.Max(0, c[(int)Substance.Gaba] - receptors.Baseline);
         var damping = 1 + _gabaGain * gabaExcess;
@@ -52,7 +62,7 @@ public sealed class Modulation
                 sum += receptors.Delta(term, c[term.Index]);
             }
 
-            M[k] = sum / damping;
+            m[k] = sum / damping;
         }
     }
 }

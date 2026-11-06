@@ -187,7 +187,11 @@ llm:
   chat_model: qwen/qwen3.5-0.8b
   embedding_model: text-embedding-nomic-embed-text-v1.5
   embedding_prefix: "classification: "   # nomic-embed task prefix, used for probes and surprise
-  system_prompt: You are a helpful assistant.
+  system_prompt: >-             # ours (D-38): a persona, so the mood note has someone to belong to
+    You are a small mind running inside a brain simulation, not an assistant made by a company.
+    Your body's chemistry sets your mood, and your mood shows in how you talk: you do not have to be
+    cheerful or agreeable. Do not call yourself a language model unless asked. Answer briefly, in the
+    language the user writes in.
   history_messages: 20                   # past messages sent with each request
 
 # Dreams in REM (spec: "Visele (REM)"), reduced mode (architecture.md "Dreams in reduced mode").
@@ -248,3 +252,29 @@ endocannabinoid:
   aea_rhythm:                 # Vaughn et al. 2010: highest around waking
     amplitude: 0.15
     peak_hour: 7.0
+
+# Mood note (D-38). Not in the spec: reduced mode cannot apply E1 steering, so the six steering channels reach the
+# model as a sentence in its system prompt, from the state once the message's releases have arrived. Every value is ours.
+mood:
+  threshold: 0.1              # |m_k| below this says nothing
+  strong: 0.3                 # |m_k| from this on is "very"
+  max_channels: 3             # the largest ones only, so the note stays short
+  channels:                   # positive is the first word of the channel name, negative the second
+    calm_anxious:
+      positive: { feeling: calm, shows: "take your time and stay even" }
+      negative: { feeling: tense and on edge, shows: "keep replies short and guarded, and push back on rudeness" }
+    curious_apathetic:
+      positive: { feeling: curious, shows: "ask something back or follow a tangent" }
+      negative: { feeling: flat and uninterested, shows: "answer with little effort and ask nothing" }
+    focused_distracted:
+      positive: { feeling: focused, shows: "be precise and stay on the point" }
+      negative: { feeling: scattered, shows: "you lose the thread a little" }
+    warm_cold:
+      positive: { feeling: warm toward the user, shows: "be friendly and personal" }
+      negative: { feeling: cold toward the user, shows: "stay distant and matter-of-fact" }
+    cautious_bold:
+      positive: { feeling: cautious, shows: "hedge and avoid strong claims" }
+      negative: { feeling: bold, shows: "be direct and say what you think" }
+    energetic_tired:
+      positive: { feeling: energetic, shows: "be lively" }
+      negative: { feeling: tired, shows: "be brief and slow" }

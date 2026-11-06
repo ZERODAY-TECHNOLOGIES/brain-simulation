@@ -20,6 +20,7 @@ public sealed record EngineConfig
     public DreamConfig Dreams { get; init; } = new();
     public MemoryConfig Memory { get; init; } = new();
     public EndocannabinoidConfig Endocannabinoid { get; init; } = new();
+    public MoodConfig Mood { get; init; } = new();
 
     public static EngineConfig LoadDefault() => Load(Path.Combine(AppContext.BaseDirectory, "config.yaml"));
 
@@ -56,6 +57,10 @@ public sealed record EngineConfig
         ParseSubstances(Endocannabinoid.ReleaseGain.Keys);
         ValidateTable("appraisal signal", "gains", Appraisal.Gains, Signals);
         ValidateTable("sleep phase", "phase_targets", Sleep.PhaseTargets, SleepPhases);
+        foreach (var channel in Mood.Channels.Keys.Where(c => !Modulation.Channels.ContainsKey(c)))
+        {
+            throw new InvalidDataException($"config.yaml: mood channel '{channel}' is not a modulation channel.");
+        }
     }
 
     /// <summary>A table keyed by one of <paramref name="allowed"/>, whose rows map substances to values.</summary>
@@ -79,6 +84,29 @@ public sealed record EngineConfig
             Substances.Parse(name);
         }
     }
+}
+
+/// <summary>The mood note that stands in for E1 steering in reduced mode (D-38).</summary>
+public sealed record MoodConfig
+{
+    public double Threshold { get; init; } = 0.1;
+    public double Strong { get; init; } = 0.3;
+    public int MaxChannels { get; init; } = 3;
+    public Dictionary<string, MoodChannel> Channels { get; init; } = [];
+}
+
+/// <summary>Positive is the first word of the channel name (calm in calm_anxious), negative the second.</summary>
+public sealed record MoodChannel
+{
+    public MoodPole Positive { get; init; } = new();
+    public MoodPole Negative { get; init; } = new();
+}
+
+/// <summary>How a pole feels, and how that shows in a reply.</summary>
+public sealed record MoodPole
+{
+    public string Feeling { get; init; } = "";
+    public string Shows { get; init; } = "";
 }
 
 public sealed record TimeConfig

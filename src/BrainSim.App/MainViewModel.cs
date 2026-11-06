@@ -91,7 +91,7 @@ public sealed partial class MainViewModel : ObservableObject
         Gains = [.. config.Appraisal.Gains.SelectMany(g => g.Value.Select(s => new GainRow(g.Key, Substances.Parse(s.Key), s.Value, this)))];
         Channels = [.. host.Agent.Brain.Modulation.Names.Select(n => new ChannelRow(n))];
 
-        host.Appraised += (_, signals, _, recalled) => _dispatcher.BeginInvoke(() =>
+        host.Appraised += (_, signals, _, recalled, _) => _dispatcher.BeginInvoke(() =>
         {
             _streaming = "";
             _lastThreat = (signals.Threat, DateTime.UtcNow);

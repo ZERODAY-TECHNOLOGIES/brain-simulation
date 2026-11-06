@@ -71,6 +71,46 @@ public class AgentTests
         Assert.True(agent.Brain.Chemistry[Substance.Dopamine] > 1.5, $"DA was {agent.Brain.Chemistry[Substance.Dopamine]} after {daBefore}");
     }
 
+    private static string SystemMessage(JsonDocument request) =>
+        request.RootElement.GetProperty("messages")[0].GetProperty("content").GetString()!;
+
+    [Fact]
+    public async Task A_threat_shapes_the_reply_it_triggers()
+    {
+        var probes = new Dictionary<string, LinearProbe>(Probes) { ["hostility"] = new LinearProbe([20, 0, 0, 0], -10, 1, "test") };
+        var fake = new FakeLmStudio(replyTokens: 20) { Embed = text => text.Contains("idiot") ? [1, 0, 0, 0] : [0.5f, 0.5f, 0.5f, 0.5f] };
+        var client = new LmStudioClient(new HttpClient(fake) { BaseAddress = new Uri(Config.Llm.BaseUrl) }, Config.Llm);
+        var agent = new Agent(Config, client, probes, () => Start);
+        var rest = Effectors.Sampling.Compute(agent.Brain.Chemistry.C, Config.Sampling);
+        double[]? projected = null;
+
+        var reply = await agent.SendAsync(
+            "you idiot",
+            onAppraised: (_, _, _, _) => projected = agent.Brain.Chemistry.Projected(),
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.InRange(reply.Signals.Threat, 0.99, 1.0);
+        var anxious = Config.Mood.Channels["calm_anxious"].Negative;
+        Assert.Contains(anxious.Feeling, reply.Mood);
+        Assert.Contains(anxious.Shows, reply.Mood);
+        Assert.Contains(reply.Mood!, SystemMessage(fake.ChatRequests[0]));
+        Assert.Equal(Effectors.Sampling.Compute(projected!, Config.Sampling), reply.Sampling);
+        Assert.True(reply.Sampling.Temperature > rest.Temperature + 0.1, $"T {reply.Sampling.Temperature} vs {rest.Temperature} at rest");
+        Assert.DoesNotContain(agent.History, m => m.Content.Contains(anxious.Feeling)); // sent with this request only
+    }
+
+    [Fact]
+    public async Task At_rest_the_request_carries_the_persona_and_no_mood_note()
+    {
+        var (agent, llm, _) = Create();
+
+        var reply = await agent.SendAsync("hello", cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Null(reply.Mood);
+        Assert.Equal(Config.Llm.SystemPrompt, SystemMessage(llm.ChatRequests[0]));
+        Assert.Contains("brain simulation", Config.Llm.SystemPrompt);
+    }
+
     [Fact]
     public async Task A_checkpoint_resumes_exactly()
     {
