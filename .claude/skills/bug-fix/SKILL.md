@@ -126,6 +126,9 @@ Traps this repository and this machine already paid for. Add to the list when a 
   and the tests still run the temporary version. Touch the file (`LastWriteTime = Get-Date`) before rebuilding.
 - **UIA and ComboBoxes.** After a ComboBox dropdown opens and closes through UIA, the window ignores a UIA close
   (SC_CLOSE). Close test runs with `PostMessage(hwnd, WM_CLOSE)`. Whether a real mouse sees it is open (D-37).
+- **UIA and MessageBox.** A WPF `MessageBox` is a Win32 `#32770` dialog owned by the window that opened it (find it
+  among the descendants, not the top-level windows), and its buttons show up as panes without Invoke. Answer it with
+  `PostMessage(dialog, WM_COMMAND, IDOK, 0)`, which moves no mouse (D-39).
 - **Signed number formats.** `"+0.00;-0.00"` turns a tiny negative into `-+0.00`: give every
   signed format a zero section, `"+0.00;-0.00;0.00"` (`53fe834`). Search: `\+0(\.0+)?;-0`.
 - **Windows PowerShell 5.1.** `Get-Content -Raw` returns a PSObject that serializes wrongly in a JSON body; use

@@ -118,7 +118,7 @@ public partial class SettingsWindow : Window
 
         var llm = settings.ApplyTo(_current);
         var question = $"This downloads two public datasets (GoEmotions, tweet_eval) and embeds about 24,000 short texts with {llm.EmbeddingModel}. "
-            + "It takes a few minutes, and a hosted embedding API bills for it (a few cents at most). Continue?";
+            + "With a local model on a laptop it takes about a quarter of an hour; a hosted embedding API bills for it (a few cents at most). Continue?";
         if (MessageBox.Show(this, question, "Retrain probes", MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK)
         {
             return;

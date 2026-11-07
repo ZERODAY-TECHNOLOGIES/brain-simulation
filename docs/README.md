@@ -98,7 +98,10 @@ As of 2026-11-06:
 Run the app with `dotnet run --project src/BrainSim.App` (LM Studio on, both models loaded).
 Run the tests with `dotnet test --solution BrainSim.slnx`. To also run the scenario tests
 against LM Studio: `BRAINSIM_LMSTUDIO=1 dotnet test --solution BrainSim.slnx`.
-To retrain the probes: `dotnet run --project tools/ProbeTrainer` (about 10 minutes the
-first time, while it embeds the datasets).
+Chat and embeddings can come from any OpenAI-compatible server, each with its own address
+and key: pick a preset in Settings (LM Studio, Ollama, OpenAI, OpenRouter) or type them in.
+After changing the embedding model, press "Retrain probes for this embedding model" there, and
+memory is re-embedded at the next start (D-39). The shipped probes.json is retrained with
+`dotnet run --project tools/ProbeTrainer`.
 
 Open questions are listed at the end of [decisions.md](decisions.md).

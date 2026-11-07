@@ -163,7 +163,9 @@ reads tokens from the journal.
 | Tick journal | Parquet, one row per tick: tick, wall time, phase, C, C-bar, rho, m_k, T, top-p, eta, token, CB1 tone. Journals from before Phase 8 read with the endocannabinoids at rest | Row group every 1,000 ticks |
 | Events journal | JSON lines next to the tick journal: tick, time, kind, text, values (messages, Lab actions, sleep transitions, clock changes, errors) (D-25) | Each event, flushed |
 | Checkpoint | JSON: brain state (with the last sleep length), appraisal state, conversation history, dream journal. One from before Phase 8 loads with the endocannabinoids at rest | After each response and on exit |
-| Memory | `memory.bin`, binary: every chunk with its embedding and presentations (memory.md) | After each response, when facts are learned, and on exit |
+| Memory | `memory.bin`, binary: every chunk with its embedding and presentations (memory.md); `memory.embedding.json`, the model behind those embeddings (D-39) | After each response, when facts are learned, and on exit |
+| Backend | `settings.json`: chat and embedding servers, models, prefix, both API keys DPAPI-encrypted (D-35, D-39) | When Settings saves |
+| Probes | `probes/<model>-<prefix hash>.json`, retrained in Settings; `probe-data/` caches the datasets and their embeddings (D-39) | When retraining finishes |
 | Config | `config.yaml`, versioned in git | Lab can save a copy |
 
 A crash loses at most the last row group. Everything lives in `%LOCALAPPDATA%\BrainSim`:

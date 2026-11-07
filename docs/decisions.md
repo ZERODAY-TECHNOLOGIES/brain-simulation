@@ -364,7 +364,7 @@ See [conventions.md](conventions.md#git).
   use the legacy `/v1/completions`, which some hosted APIs no longer offer. Changing the
   embedding model needs the probes retrained (tools/ProbeTrainer) and leaves facts already in
   memory with embeddings from the old model; the memory thresholds of D-33 were measured on
-  nomic-embed and may need recalibrating.
+  nomic-embed and may need recalibrating. D-39 removes the first two limits.
 
 ### D-36. Endocannabinoids as Phase 8, beyond the spec
 - **Date:** 2026-11-06
@@ -442,6 +442,36 @@ See [conventions.md](conventions.md#git).
   do better over four samples each. A larger chat model, chosen in Settings, should follow it.
   An insult moves focus and dopamine more than calm and warmth, so those lead the first note:
   that is the channel calibration, not the note.
+
+### D-39. Chat and embeddings from any vendor, each with its own key
+- **Date:** 2026-11-07
+- **Context:** The user wants chat and embeddings from any OpenAI-compatible vendor, Ollama to
+  LM Studio to hosted APIs, set apart. D-35 already had a separate embedding server, but one API
+  key went to both servers (a hosted chat key leaked to the embedding host, and an embedding
+  vendor with its own key could not be used); a new embedding model switched the probes off,
+  with retraining possible only from the repo; and memory kept the old model's vectors.
+- **Decision:**
+  - An embedding API key of its own, DPAPI-encrypted like the chat key. A separate embedding
+    server gets only that key; the chat key stays on the chat server. A settings.json from
+    before loads, with the embedding key empty.
+  - Settings presets for LM Studio, Ollama, OpenAI and OpenRouter (chat) and LM Studio, Ollama
+    and OpenAI (embeddings). An embedding preset on the chat server leaves the embedding server
+    empty, so one vendor for both means one server and one key.
+  - The probe training moved into the engine (ProbeTraining). Settings retrains the probes for
+    the embedding setup as entered, saved per model and prefix in `<data>/probes`; at start the
+    retrained file for the current setup wins over the shipped probes.json. Embeddings are cached
+    per model and prefix, so one model's probes are never trained on another's vectors.
+  - `memory.embedding.json` records the model behind memory's vectors. On a change, recall is
+    off while every fact and episode is embedded again in the background; a failure keeps it
+    off and the next start tries again.
+- **Consequence:** Ollama and hosted vendors are covered by tests against fakes and by the
+  presets, not by a live run: only LM Studio is installed here. Retraining embeds about 24,000
+  short texts: from Settings, with LM Studio and nomic-embed on this laptop, 14 minutes for 4 of
+  4 probes (prefix "search_query: ": AUC 0.854 to 0.903, a little under the shipped
+  "classification: " probes, which suits the task better); a hosted API bills a few cents. A
+  memory of 15 chunks was re-embedded at the next start after the prefix changed. The memory thresholds of D-33 were measured on nomic-embed and may need
+  recalibrating for another model. Visible in the real app: a confirmation that answers a WPF
+  MessageBox through UIA needs WM_COMMAND, since its buttons show as panes.
 
 ## Open
 

@@ -130,6 +130,14 @@ exit, through a temporary file and a rename. A file that fails to load is rename
 `memory.bin.bad` and the agent starts with an empty memory. The JSON checkpoint does not
 carry memory: 5,000 chunks with 768 floats each would make it tens of megabytes.
 
+`memory.embedding.json` next to it records the embedding model and prefix the vectors came
+from (D-39). When the current setup differs at start, memory is stale: no recall, no
+familiarity, no merging of new facts by cosine, while every fact (by its text) and episode (by
+its first line, the message it was embedded from) is embedded again in the background. The new
+vectors go in on the engine loop for those chunks only, then memory and the stamp are saved. A
+memory without the file counts as made by the current model. A failure keeps memory stale until
+the next start.
+
 ## UI
 
 - **Memory panel** (new tab): facts sorted by activation, each with a bar against `tau`,

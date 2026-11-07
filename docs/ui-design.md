@@ -40,7 +40,7 @@ bottom. Every panel can be moved, tabbed, floated or hidden. The layout is saved
 
 | Panel | Contents |
 |---|---|
-| **Toolbar** | Live or Replay, clock time and mode (Real, or Simulated with factor f), sleep phase, LM Studio status and model name |
+| **Toolbar** | Live or Replay, clock time and mode (Real, or Simulated with factor f), sleep phase, LM Studio status and model name. Settings opens the backend dialog: a preset per server (chat, embeddings), address, API key and model for each, the embedding prefix, Test connection, and "Retrain probes for this embedding model" with progress and Cancel (D-35, D-39) |
 | **Layers** | Toggles: cortex, subcortical structures, nuclei, pathways, HPA axis, labels. Cortex opacity slider |
 | **Brain 3D** | See [3D scene](#3d-scene). Hover a structure for its substances and values. Click one, or pick it in "Focus on", to frame it with the rest faded and a card of its live values; a nucleus's card opens its substance in the Lab (D-37) |
 | **Chat** | The conversation, tokens streaming in. Under each user message a small appraisal line: S, A, W, r, delta. Under each agent reply: T, top-p, max length used. No reward buttons (D-06) |
