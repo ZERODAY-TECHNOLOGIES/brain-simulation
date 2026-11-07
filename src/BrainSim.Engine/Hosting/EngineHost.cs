@@ -312,7 +312,7 @@ public sealed class EngineHost : IAsyncDisposable
         }
 
         Agent.Memory.Stale = true;
-        Log(EventKinds.Memory, $"The embedding model changed from {stamp.Model} to {_embedding.Model}: re-embedding {texts.Count} memories, recall is off until then.");
+        Log(EventKinds.Memory, $"The embedding model changed from {stamp} to {_embedding}: re-embedding {texts.Count} memories, recall is off until then.");
         Reembedding = ReembedAsync(texts);
     }
 
@@ -336,7 +336,7 @@ public sealed class EngineHost : IAsyncDisposable
                 a.Memory.ReplaceEmbeddings(vectors);
                 SaveMemory();
                 _embedding.Save(EmbeddingStampPath);
-                Log(EventKinds.Memory, $"Memory re-embedded with {_embedding.Model}: {vectors.Count} memories, recall is back on.");
+                Log(EventKinds.Memory, $"Memory re-embedded with {_embedding}: {vectors.Count} memories, recall is back on.");
                 done.SetResult();
             });
         }
@@ -348,7 +348,7 @@ public sealed class EngineHost : IAsyncDisposable
         {
             Post(_ =>
             {
-                Report($"Memory could not be re-embedded with {_embedding.Model} ({ex.Message}). Recall stays off; the next start tries again.");
+                Report($"Memory could not be re-embedded with {_embedding} ({ex.Message}). Recall stays off; the next start tries again.");
                 done.SetResult();
             });
         }

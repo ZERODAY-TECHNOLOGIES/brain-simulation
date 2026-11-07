@@ -121,14 +121,14 @@ public sealed class LmStudioClient(HttpClient http, LlmConfig config)
     /// </summary>
     private HttpRequestMessage Request(HttpMethod method, string path, bool embeddings, object? body)
     {
-        var separate = embeddings && config.EmbeddingBaseUrl.Length > 0;
-        var request = new HttpRequestMessage(method, separate ? new Uri(new Uri(config.EmbeddingBaseUrl), path) : new Uri(path, UriKind.Relative));
-        if (body is not null)
+        var (uri, key) = embeddings && config.EmbeddingBaseUrl.Length > 0
+            ? (new Uri(new Uri(config.EmbeddingBaseUrl), path), config.EmbeddingApiKey)
+            : (new Uri(path, UriKind.Relative), config.ApiKey);
+        var request = new HttpRequestMessage(method, uri)
         {
-            request.Content = JsonContent.Create(body, body.GetType(), options: Json);
-        }
-
-        if ((separate ? config.EmbeddingApiKey : config.ApiKey) is { Length: > 0 } key)
+            Content = body is null ? null : JsonContent.Create(body, body.GetType(), options: Json),
+        };
+        if (key.Length > 0)
         {
             request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", key);
         }

@@ -27,4 +27,7 @@ public sealed record EmbeddingStamp(string Model, string Prefix)
     }
 
     public void Save(string path) => File.WriteAllText(path, JsonSerializer.Serialize(this, Json));
+
+    /// <summary>For messages: the model, and the prefix when there is one, so a change of prefix alone shows.</summary>
+    public override string ToString() => Prefix.Length > 0 ? $"{Model} with prefix \"{Prefix.TrimEnd()}\"" : Model;
 }

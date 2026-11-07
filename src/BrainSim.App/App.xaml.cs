@@ -48,7 +48,7 @@ public partial class App : Application
 
             if (!probesFit)
             {
-                _host.Report($"No appraisal probes were trained on {config.Llm.EmbeddingModel}, so messages are not appraised. Retrain them in Settings.");
+                _host.Report($"No appraisal probes were trained on {BrainSim.Engine.Memory.EmbeddingStamp.From(config.Llm)}, so messages are not appraised. Retrain them in Settings.");
             }
 
             var window = new MainWindow(viewModel);

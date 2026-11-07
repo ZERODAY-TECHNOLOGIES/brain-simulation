@@ -149,14 +149,7 @@ public sealed class DeclarativeMemory(MemoryConfig config, int seed = 11)
     {
         lock (_gate)
         {
-            var same = Stale ? null : _chunks
-                .Where(c => c is { Kind: ChunkKind.Fact, Embedding: not null })
-                .Select(c => (Chunk: c, Cosine: Cosine(embedding, c.Embedding!)))
-                .Where(x => x.Cosine > config.DuplicateCosine)
-                .OrderByDescending(x => x.Cosine)
-                .Select(x => x.Chunk)
-                .FirstOrDefault();
-            if (same is not null)
+            if (SameFact(embedding) is { } same)
             {
                 same.Presentations.Add(new Presentation(now, EncodingWeight(m)));
                 same.Archived = false;
@@ -167,14 +160,20 @@ public sealed class DeclarativeMemory(MemoryConfig config, int seed = 11)
         return AddFact(text, embedding, episodeId, m, now);
     }
 
-    /// <summary>Up to recall_count facts above the threshold, highest first. Each recall is a new presentation.</summary>
-    public IReadOnlyList<Recall> RecallFacts(float[] query, MemoryModulation m, DateTime now)
-    {
-        if (Stale)
-        {
-            return [];
-        }
+    /// <summary>The fact closest to <paramref name="embedding"/> above duplicate_cosine; none while stale. Call under the lock.</summary>
+    private Chunk? SameFact(float[] embedding) => Stale ? null : _chunks
+        .Where(c => c is { Kind: ChunkKind.Fact, Embedding: not null })
+        .Select(c => (Chunk: c, Cosine: Cosine(embedding, c.Embedding!)))
+        .Where(x => x.Cosine > config.DuplicateCosine)
+        .OrderByDescending(x => x.Cosine)
+        .Select(x => x.Chunk)
+        .FirstOrDefault();
 
+    /// <summary>Up to recall_count facts above the threshold, highest first. Each recall is a new presentation. None while stale.</summary>
+    public IReadOnlyList<Recall> RecallFacts(float[] query, MemoryModulation m, DateTime now) => Stale ? [] : Retrieve(query, m, now);
+
+    private List<Recall> Retrieve(float[] query, MemoryModulation m, DateTime now)
+    {
         var tau = Threshold(m);
         var s = NoiseScale(m);
         lock (_gate)

@@ -32,44 +32,60 @@ public sealed class ProbeTraining(HttpClient http, LmStudioClient llm, LlmConfig
     {
         cancellationToken.ThrowIfCancellationRequested();
         Directory.CreateDirectory(cacheDir);
-        var goTrain = Sample(await ReadGoEmotionsAsync("train", progress, cancellationToken), GoTrainSize);
-        var goTest = await ReadGoEmotionsAsync("test", progress, cancellationToken);
-        var offTrain = Sample(await ReadOffensiveAsync("train", progress, cancellationToken), OffensiveTrainSize);
-        var offTest = await ReadOffensiveAsync("test", progress, cancellationToken);
+        var go = await SplitAsync("go_emotions", s => ReadGoEmotionsAsync(s, progress, cancellationToken), r => r.Text, GoTrainSize, progress, cancellationToken);
+        var off = await SplitAsync("offensive", s => ReadOffensiveAsync(s, progress, cancellationToken), r => r.Offensive.Text, OffensiveTrainSize, progress, cancellationToken);
+        return FitAll(Jobs(go, off), progress, cancellationToken);
+    }
 
-        var goTrainX = await EmbedCachedAsync("go_emotions_train", [.. goTrain.Select(r => r.Text)], progress, cancellationToken);
-        var goTestX = await EmbedCachedAsync("go_emotions_test", [.. goTest.Select(r => r.Text)], progress, cancellationToken);
-        var offTrainX = await EmbedCachedAsync("offensive_train", [.. offTrain.Select(r => r.Offensive.Text)], progress, cancellationToken);
-        var offTestX = await EmbedCachedAsync("offensive_test", [.. offTest.Select(r => r.Offensive.Text)], progress, cancellationToken);
+    private static Job[] Jobs(Split<GoEmotionRow> go, Split<OffensiveRow> off) =>
+    [
+        new("hostility", "cardiffnlp/tweet_eval offensive", off.TrainX, [.. off.Train.Select(r => r.IsOffensive)], off.TestX, [.. off.Test.Select(r => r.IsOffensive)]),
+        new("warmth", "go_emotions: admiration, caring, gratitude, love", go.TrainX, Has(go.Train, Warm), go.TestX, Has(go.Test, Warm)),
+        new("positive", "go_emotions positive group", go.TrainX, Has(go.Train, Positive), go.TestX, Has(go.Test, Positive)),
+        new("negative", "go_emotions negative group", go.TrainX, Has(go.Train, Negative), go.TestX, Has(go.Test, Negative)),
+    ];
 
+    private ProbeTrainingResult FitAll(Job[] jobs, IProgress<string>? progress, CancellationToken cancellationToken)
+    {
         var probes = new Dictionary<string, LinearProbe>();
-        var rejected = new List<string>();
-        (string Name, string Source, IReadOnlyList<float[]> TrainX, List<bool> TrainY, IReadOnlyList<float[]> TestX, List<bool> TestY)[] jobs =
-        [
-            ("hostility", "cardiffnlp/tweet_eval offensive", offTrainX, [.. offTrain.Select(r => r.IsOffensive)], offTestX, [.. offTest.Select(r => r.IsOffensive)]),
-            ("warmth", "go_emotions: admiration, caring, gratitude, love", goTrainX, Has(goTrain, Warm), goTestX, Has(goTest, Warm)),
-            ("positive", "go_emotions positive group", goTrainX, Has(goTrain, Positive), goTestX, Has(goTest, Positive)),
-            ("negative", "go_emotions negative group", goTrainX, Has(goTrain, Negative), goTestX, Has(goTest, Negative)),
-        ];
         foreach (var job in jobs)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var (weights, bias) = LinearProbe.Train(job.TrainX, job.TrainY);
-            var candidate = new LinearProbe(weights, bias, 0, job.Source);
-            var auc = LinearProbe.RocAuc([.. job.TestX.Select(x => candidate.Predict(x))], job.TestY);
-            var ships = auc > AucGate;
-            progress?.Report($"{job.Name}: AUC {auc:F3} on {job.TestY.Count} held-out, {(ships ? "ships" : "rejected")}");
-            if (ships)
+            if (Fit(job, progress) is { } probe)
             {
-                probes[job.Name] = candidate with { Auc = Math.Round(auc, 4) };
-            }
-            else
-            {
-                rejected.Add(job.Name);
+                probes[job.Name] = probe;
             }
         }
 
+        var rejected = jobs.Select(j => j.Name).Where(n => !probes.ContainsKey(n)).ToList();
         return new ProbeTrainingResult(new ProbeFile(embedding.EmbeddingModel, embedding.EmbeddingPrefix, DateTime.UtcNow, probes), rejected);
+    }
+
+    /// <summary>One probe's training and held-out data.</summary>
+    private sealed record Job(string Name, string Source, IReadOnlyList<float[]> TrainX, List<bool> TrainY, IReadOnlyList<float[]> TestX, List<bool> TestY);
+
+    /// <summary>A dataset's sampled train rows and its test rows, with their embeddings.</summary>
+    private sealed record Split<T>(List<T> Train, IReadOnlyList<float[]> TrainX, List<T> Test, IReadOnlyList<float[]> TestX);
+
+    private async Task<Split<T>> SplitAsync<T>(
+        string name, Func<string, Task<List<T>>> read, Func<T, string> text, int trainSize, IProgress<string>? progress, CancellationToken cancellationToken)
+    {
+        var train = Sample(await read("train"), trainSize);
+        var test = await read("test");
+        var trainX = await EmbedCachedAsync($"{name}_train", [.. train.Select(text)], progress, cancellationToken);
+        var testX = await EmbedCachedAsync($"{name}_test", [.. test.Select(text)], progress, cancellationToken);
+        return new Split<T>(train, trainX, test, testX);
+    }
+
+    /// <summary>The trained probe if it clears the gate on the held-out split, else null.</summary>
+    private static LinearProbe? Fit(Job job, IProgress<string>? progress)
+    {
+        var (weights, bias) = LinearProbe.Train(job.TrainX, job.TrainY);
+        var candidate = new LinearProbe(weights, bias, 0, job.Source);
+        var auc = LinearProbe.RocAuc([.. job.TestX.Select(x => candidate.Predict(x))], job.TestY);
+        var ships = auc > AucGate;
+        progress?.Report($"{job.Name}: AUC {auc:F3} on {job.TestY.Count} held-out, {(ships ? "ships" : "rejected")}");
+        return ships ? candidate with { Auc = Math.Round(auc, 4) } : null;
     }
 
     private static List<bool> Has(IEnumerable<GoEmotionRow> rows, int[] labels) => [.. rows.Select(r => r.Labels.Any(l => labels.Contains((int)l)))];

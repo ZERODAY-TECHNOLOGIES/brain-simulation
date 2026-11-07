@@ -125,6 +125,14 @@ public sealed class MemoryReembedTests : IDisposable
         Assert.NotEqual(1, added.Id);
     }
 
+    [Theory]
+    [InlineData("nomic", "classification: ", "nomic with prefix \"classification:\"")]
+    [InlineData("text-embedding-3-small", "", "text-embedding-3-small")]
+    public void A_stamp_reads_as_its_model_and_prefix_so_a_prefix_change_shows(string model, string prefix, string expected)
+    {
+        Assert.Equal(expected, new EmbeddingStamp(model, prefix).ToString());
+    }
+
     [Fact]
     public void Replacing_embeddings_touches_only_the_chunks_it_has_vectors_for()
     {
