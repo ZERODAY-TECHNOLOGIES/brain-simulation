@@ -24,9 +24,14 @@ public sealed class EngineHost : IAsyncDisposable
     private Task? _loop;
     private TickJournal? _journal;
 
+    private readonly LmStudioClient _llm;
+    private readonly EmbeddingStamp _embedding;
+
     public EngineHost(EngineConfig config, LmStudioClient llm, IReadOnlyDictionary<string, LinearProbe> probes, string dataDirectory, SimulationClock? clock = null)
     {
         _dataDirectory = dataDirectory;
+        _llm = llm;
+        _embedding = EmbeddingStamp.From(config.Llm);
         Clock = clock ?? new SimulationClock();
         Agent = new Agent(config, llm, probes, () => Clock.Now);
     }
@@ -38,6 +43,10 @@ public sealed class EngineHost : IAsyncDisposable
     public string? JournalPath { get; private set; }
     public string CheckpointPath => Path.Combine(_dataDirectory, "checkpoint.json");
     public string MemoryPath => Path.Combine(_dataDirectory, "memory.bin");
+    public string EmbeddingStampPath => Path.Combine(_dataDirectory, "memory.embedding.json");
+
+    /// <summary>Embedding memory again after a change of embedding model; done when its vectors are in, or it failed (D-39).</summary>
+    public Task Reembedding { get; private set; } = Task.CompletedTask;
 
     /// <summary>The conversation restored from the checkpoint, from sessions before this one.</summary>
     public IReadOnlyList<ChatMessage> EarlierMessages { get; private set; } = [];
@@ -68,6 +77,8 @@ public sealed class EngineHost : IAsyncDisposable
         {
             Report("memory.bin could not be read. It was set aside as memory.bin.bad and memory starts empty.");
         }
+
+        StartReembedIfNeeded();
 
         if (await AgentCheckpoint.LoadAsync(CheckpointPath) is { } checkpoint)
         {
@@ -280,6 +291,70 @@ public sealed class EngineHost : IAsyncDisposable
 
     // ponytail: rewrites the whole file each time, about 15 MB at the 5000 chunk limit; append-only if that stalls the loop.
     private void SaveMemory() => MemoryFile.Save(MemoryPath, Agent.Memory.Snapshot());
+
+    /// <summary>
+    /// Vectors from another embedding model read noise, so memory is embedded again in the background, recall off
+    /// meanwhile (D-39). A memory without a stamp was made with the current model: it only gets stamped.
+    /// </summary>
+    private void StartReembedIfNeeded()
+    {
+        var stamp = EmbeddingStamp.Load(EmbeddingStampPath);
+        if (stamp == _embedding)
+        {
+            return;
+        }
+
+        var texts = Agent.Memory.EmbeddedTexts();
+        if (stamp is null || texts.Count == 0)
+        {
+            _embedding.Save(EmbeddingStampPath);
+            return;
+        }
+
+        Agent.Memory.Stale = true;
+        Log(EventKinds.Memory, $"The embedding model changed from {stamp.Model} to {_embedding.Model}: re-embedding {texts.Count} memories, recall is off until then.");
+        Reembedding = ReembedAsync(texts);
+    }
+
+    private async Task ReembedAsync(IReadOnlyList<(int Id, string Text)> texts)
+    {
+        var done = new TaskCompletionSource();
+        try
+        {
+            var vectors = new Dictionary<int, float[]>();
+            foreach (var batch in texts.Chunk(64))
+            {
+                var embedded = await _llm.EmbedAsync([.. batch.Select(t => t.Text)], _stop.Token);
+                for (var i = 0; i < batch.Length; i++)
+                {
+                    vectors[batch[i].Id] = embedded[i];
+                }
+            }
+
+            Post(a =>
+            {
+                a.Memory.ReplaceEmbeddings(vectors);
+                SaveMemory();
+                _embedding.Save(EmbeddingStampPath);
+                Log(EventKinds.Memory, $"Memory re-embedded with {_embedding.Model}: {vectors.Count} memories, recall is back on.");
+                done.SetResult();
+            });
+        }
+        catch (OperationCanceledException) when (_stop.IsCancellationRequested)
+        {
+            return; // closing: the next start tries again
+        }
+        catch (Exception ex) when (ex is HttpRequestException or InvalidDataException or System.Text.Json.JsonException or OperationCanceledException)
+        {
+            Post(_ =>
+            {
+                Report($"Memory could not be re-embedded with {_embedding.Model} ({ex.Message}). Recall stays off; the next start tries again.");
+                done.SetResult();
+            });
+        }
+
+        await done.Task.WaitAsync(_stop.Token);
+    }
 
     private void DrainCommands()
     {

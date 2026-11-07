@@ -21,7 +21,8 @@ public sealed class Chunk
     public required int Id { get; init; }
     public required ChunkKind Kind { get; init; }
     public required string Text { get; init; }
-    public float[]? Embedding { get; init; }
+    /// <summary>Replaced only when memory is embedded again with a new model (D-39), on the engine loop.</summary>
+    public float[]? Embedding { get; set; }
     public required DateTime Created { get; init; }
     public List<Presentation> Presentations { get; init; } = [];
     public double Tag { get; set; }

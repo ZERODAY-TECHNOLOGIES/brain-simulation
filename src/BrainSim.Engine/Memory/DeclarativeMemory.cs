@@ -22,6 +22,12 @@ public sealed class DeclarativeMemory(MemoryConfig config, int seed = 11)
 
     public MemoryConfig Config => config;
 
+    /// <summary>
+    /// The vectors come from another embedding model and are being replaced (D-39). Until then nothing is recalled or
+    /// familiar, and new facts are not merged with old ones: comparing vectors of two models reads noise.
+    /// </summary>
+    public bool Stale { get; set; }
+
     /// <summary>Raised on the engine loop after each NREM replay, with the replayed episode.</summary>
     public event Action<Chunk>? Replayed;
 
@@ -31,6 +37,33 @@ public sealed class DeclarativeMemory(MemoryConfig config, int seed = 11)
         lock (_gate)
         {
             return [.. _chunks.Select(c => c.Copy())];
+        }
+    }
+
+    /// <summary>
+    /// What to embed again for each chunk that has a vector: a fact's text, an episode's first line, which is the message
+    /// it was embedded from.
+    /// </summary>
+    // ponytail: a message with a newline in it is embedded from its first line only; store the message apart if that matters.
+    public IReadOnlyList<(int Id, string Text)> EmbeddedTexts()
+    {
+        lock (_gate)
+        {
+            return [.. _chunks.Where(c => c.Embedding is not null).Select(c => (c.Id, c.Kind == ChunkKind.Episode ? c.Text.Split('\n')[0] : c.Text))];
+        }
+    }
+
+    /// <summary>Puts in the new model's vectors for the chunks that have one; chunks stored meanwhile already have theirs.</summary>
+    public void ReplaceEmbeddings(IReadOnlyDictionary<int, float[]> vectors)
+    {
+        lock (_gate)
+        {
+            foreach (var c in _chunks)
+            {
+                c.Embedding = vectors.GetValueOrDefault(c.Id, c.Embedding!);
+            }
+
+            Stale = false;
         }
     }
 
@@ -116,7 +149,7 @@ public sealed class DeclarativeMemory(MemoryConfig config, int seed = 11)
     {
         lock (_gate)
         {
-            var same = _chunks
+            var same = Stale ? null : _chunks
                 .Where(c => c is { Kind: ChunkKind.Fact, Embedding: not null })
                 .Select(c => (Chunk: c, Cosine: Cosine(embedding, c.Embedding!)))
                 .Where(x => x.Cosine > config.DuplicateCosine)
@@ -137,6 +170,11 @@ public sealed class DeclarativeMemory(MemoryConfig config, int seed = 11)
     /// <summary>Up to recall_count facts above the threshold, highest first. Each recall is a new presentation.</summary>
     public IReadOnlyList<Recall> RecallFacts(float[] query, MemoryModulation m, DateTime now)
     {
+        if (Stale)
+        {
+            return [];
+        }
+
         var tau = Threshold(m);
         var s = NoiseScale(m);
         lock (_gate)
@@ -169,6 +207,11 @@ public sealed class DeclarativeMemory(MemoryConfig config, int seed = 11)
     /// <summary>How well the message matches something remembered: clip((A_max - tau) / 2, 0, 1), without noise.</summary>
     public double Familiarity(float[] query, MemoryModulation m, DateTime now)
     {
+        if (Stale)
+        {
+            return 0;
+        }
+
         lock (_gate)
         {
             var best = _chunks
